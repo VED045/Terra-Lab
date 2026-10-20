@@ -18,6 +18,7 @@ import {
   FolderOpen,
   BookOpen,
   Settings2,
+  PanelRight,
   HelpCircle,
   Sun,
   Moon,
@@ -50,7 +51,7 @@ import {
 import {
   advanceClock,
   createTemplate,
-  projectSchema,
+  deserializeProject,
   solveProject,
   distance,
   type Receiver,
@@ -60,6 +61,7 @@ import { useStudio, formatTime, type ToolMode } from '@/lib/store';
 import { saveProject, supabase } from '@/lib/persistence';
 import NetworkCanvas from './network-canvas';
 import Inspector from './inspector';
+import { SettingsDialog } from './settings-dialog';
 import { ProjectsDialog, AccountDialog, downloadProject } from './project-dialogs';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
@@ -87,6 +89,8 @@ function Workspace() {
   const { project, selected, time, playing, dirty, logs, edit, log } = s;
   const speed = project.settings.speedMultiplier;
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -108,7 +112,7 @@ function Workspace() {
         state.project.id === original.id &&
         JSON.stringify(state.project) === JSON.stringify(original)
       )
-        state.markSaved(p.updatedAt);
+        state.markSaved(p.updatedAt, p.id);
       void qc.invalidateQueries({ queryKey: ['projects'] });
     },
     onError: (e) => {
@@ -141,7 +145,7 @@ function Workspace() {
       try {
         const last = localStorage.getItem('terralab.active.v1');
         if (last) {
-          useStudio.getState().load(projectSchema.parse(JSON.parse(last)));
+          useStudio.getState().load(deserializeProject(last));
         } else {
           // The static SSR seed has a provisional ID; each browser starts with its own project UUID.
           useStudio.getState().load(createTemplate('outdoor'));
@@ -213,6 +217,7 @@ function Workspace() {
         (e.target as HTMLElement).matches('input,textarea,select,[contenteditable]') ||
         projectsOpen ||
         accountOpen ||
+        settingsOpen ||
         helpOpen
       )
         return;
@@ -265,7 +270,7 @@ function Workspace() {
     };
     window.addEventListener('keydown', fn);
     return () => window.removeEventListener('keydown', fn);
-  }, [projectsOpen, accountOpen, helpOpen, saveCurrent]);
+  }, [projectsOpen, accountOpen, settingsOpen, helpOpen, saveCurrent]);
   const receivers = project.objects.filter(
     (o): o is Receiver => o.kind === 'receiver' && o.enabled,
   );
@@ -354,7 +359,7 @@ function Workspace() {
   }
   return (
     <main
-      className={`studio theme-${project.canvas.theme} ${inspectorOpen ? 'inspector-open' : ''}`}
+      className={`studio theme-${project.canvas.theme} ${inspectorOpen ? 'inspector-open' : ''} ${inspectorCollapsed ? 'inspector-collapsed' : ''}`}
     >
       <nav className="navigation-rail" aria-label="Main navigation">
         <button
@@ -465,11 +470,20 @@ function Workspace() {
             <Redo2 size={16} />
           </Tool>
           <Tool
-            label="Toggle properties inspector"
-            active={inspectorOpen}
-            onClick={() => setInspectorOpen(!inspectorOpen)}
+            label="Workspace settings"
+            active={settingsOpen}
+            onClick={() => setSettingsOpen(true)}
           >
             <Settings2 size={16} />
+          </Tool>
+          <Tool
+            label="Toggle properties inspector"
+            onClick={() => {
+              if (window.matchMedia('(max-width:699px)').matches) setInspectorOpen(!inspectorOpen);
+              else setInspectorCollapsed(!inspectorCollapsed);
+            }}
+          >
+            <PanelRight size={16} />
           </Tool>
           <span className="vertical-rule" />
           <Button size="sm" onClick={() => downloadProject(project)}>
@@ -835,6 +849,11 @@ function Workspace() {
         </span>
       </footer>
       <ProjectsDialog open={projectsOpen} onOpenChange={setProjectsOpen} />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onAccount={() => setAccountOpen(true)}
+      />
       <AccountDialog
         open={accountOpen}
         onOpenChange={setAccountOpen}

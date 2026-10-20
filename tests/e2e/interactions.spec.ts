@@ -1,5 +1,25 @@
 import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
+test('workspace settings open from the command bar on desktop', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Workspace settings', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Workspace settings' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('combobox', { name: 'Workspace theme' }).selectOption('light');
+  await expect(page.locator('main')).toHaveClass(/theme-light/);
+  await dialog.getByRole('spinbutton', { name: 'Duration', exact: true }).fill('90');
+  await dialog.getByRole('spinbutton', { name: 'Duration', exact: true }).press('Enter');
+  await dialog.getByRole('button', { name: 'Close dialog' }).click();
+  await page.getByRole('button', { name: 'Open simulation settings', exact: true }).click();
+  await expect(
+    page.locator('.inspector').getByRole('spinbutton', { name: 'Duration', exact: true }),
+  ).toHaveValue('90');
+  await page.getByRole('button', { name: 'Toggle properties inspector', exact: true }).click();
+  await expect(page.locator('.inspector')).toBeHidden();
+  await page.getByRole('button', { name: 'Toggle properties inspector', exact: true }).click();
+  await expect(page.locator('.inspector')).toBeVisible();
+});
 test('dragging preserves world coordinates and multi-selection can be duplicated', async ({
   page,
 }) => {

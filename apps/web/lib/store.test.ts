@@ -3,6 +3,12 @@ import { createTemplate } from '@terralab/shared';
 import { useStudio } from './store';
 beforeEach(() => useStudio.getState().load(createTemplate('square')));
 describe('Editor transactions', () => {
+  it('updates the active project ID after a successful legacy save', () => {
+    const id = crypto.randomUUID();
+    useStudio.getState().markSaved('2026-10-20T00:00:00.000Z', id);
+    expect(useStudio.getState().project.id).toBe(id);
+    expect(useStudio.getState().dirty).toBe(false);
+  });
   it('adds, updates, duplicates and deletes real objects', () => {
     let s = useStudio.getState();
     s.add('receiver', { x: 10, y: 20 });

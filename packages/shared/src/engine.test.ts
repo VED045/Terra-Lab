@@ -260,6 +260,14 @@ describe('Deterministic mobility', () => {
   });
 });
 describe('Project serialization and validation', () => {
+  it('migrates legacy active workspaces deterministically, preserving configuration', () => {
+    const original = createTemplate('moving');
+    const legacy = { ...original, id: 'starter-outdoor' };
+    const restored = deserializeProject(JSON.stringify(legacy));
+    expect(projectSchema.safeParse(restored).success).toBe(true);
+    expect({ ...restored, id: original.id }).toEqual(original);
+    expect(deserializeProject(JSON.stringify(legacy))).toEqual(restored);
+  });
   it.each(['square', 'outdoor', 'poor', 'moving'])('round-trips complete %s template', (key) => {
     const p = createTemplate(key);
     expect(deserializeProject(serializeProject(p))).toEqual(p);

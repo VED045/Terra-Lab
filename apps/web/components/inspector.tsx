@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Radio,
   Crosshair,
@@ -17,74 +17,8 @@ import {
 import { solveProject, distance, type Receiver, type Solution, type Point } from '@terralab/shared';
 import { useStudio } from '@/lib/store';
 import { Button } from './ui/button';
-export function NumberField({
-  label,
-  value,
-  onChange,
-  unit,
-  min,
-  max,
-  step = 'any',
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  unit?: string;
-  min?: number;
-  max?: number;
-  step?: number | 'any';
-}) {
-  const [text, setText] = useState(String(value));
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    setText(String(value));
-  }, [value]);
-  function commit() {
-    const n = Number(text);
-    if (
-      text.trim() === '' ||
-      !Number.isFinite(n) ||
-      (min !== undefined && n < min) ||
-      (max !== undefined && n > max)
-    ) {
-      setError(true);
-      return;
-    }
-    setError(false);
-    onChange(n);
-  }
-  return (
-    <label className={`number-field ${error ? 'invalid' : ''}`}>
-      <span>{label}</span>
-      <div>
-        <input
-          aria-label={label}
-          type="number"
-          step={step}
-          min={min}
-          max={max}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') e.currentTarget.blur();
-            if (e.key === 'Escape') {
-              setText(String(value));
-              setError(false);
-            }
-          }}
-        />
-        {unit && <span className="unit">{unit}</span>}
-      </div>
-      {error && (
-        <small>
-          Enter a valid value{min !== undefined ? ` ≥ ${min}` : ''}
-          {max !== undefined ? ` ≤ ${max}` : ''}.
-        </small>
-      )}
-    </label>
-  );
-}
+import { NumberField } from './ui/number-field';
+import { SimulationSettings } from './simulation-settings';
 const icons = { anchor: Radio, receiver: Crosshair, obstacle: Square, trajectory: Route };
 export default function Inspector({ verifiedSolution }: { verifiedSolution?: Solution | null }) {
   const { project, selected, update, edit, time } = useStudio();
@@ -133,88 +67,17 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
         >
           Simulation
         </button>
-        <SlidersHorizontal size={14} />
+        <button
+          aria-label="Open simulation settings"
+          title="Simulation settings"
+          onClick={() => setTab('simulation')}
+        >
+          <SlidersHorizontal size={14} />
+        </button>
       </div>
       <div className="inspector-scroll">
         {tab === 'simulation' ? (
-          <>
-            <div className="section-title">SIMULATION CONFIGURATION</div>
-            <p className="small-copy">
-              Deterministic time. Synthetic calibrated ranges in a horizontal plane.
-            </p>
-            <NumberField
-              label="Duration"
-              value={project.settings.duration}
-              unit="s"
-              min={1}
-              max={3600}
-              onChange={(v) =>
-                edit((p) => {
-                  p.settings.duration = v;
-                })
-              }
-            />
-            <NumberField
-              label="Time step"
-              value={project.settings.step}
-              unit="s"
-              min={0.1}
-              max={1}
-              onChange={(v) =>
-                edit((p) => {
-                  p.settings.step = v;
-                })
-              }
-            />
-            <NumberField
-              label="Random seed"
-              value={project.settings.seed}
-              min={0}
-              max={2147483647}
-              step={1}
-              onChange={(v) =>
-                edit((p) => {
-                  p.settings.seed = v;
-                })
-              }
-            />
-            <label className="select-field">
-              Solver engine
-              <select
-                value={project.settings.engine}
-                onChange={(e) =>
-                  edit((p) => {
-                    p.settings.engine = e.target.value as 'browser' | 'python';
-                  })
-                }
-              >
-                <option value="browser">Browser · Householder QR</option>
-                <option value="python">Python API · SVD</option>
-              </select>
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={project.settings.excludeBlocked}
-                onChange={(e) =>
-                  edit((p) => {
-                    p.settings.excludeBlocked = e.target.checked;
-                  })
-                }
-              />
-              Exclude obstructed links
-            </label>
-            <div className="info-note">
-              Obstructions are geometric flags only. Propagation and clock-error injection are
-              reserved for Phase 2.
-            </div>
-            <div className="section-title">MEASUREMENT MODEL</div>
-            <div className="model-equation">rᵢ = ‖p − aᵢ‖ + εᵢ</div>
-            <p className="small-copy">
-              Calibrated 2D ranges · metres. Independent seeded Gaussian range noise per
-              transmitter. Clock and RF properties are stored metadata in this phase.
-            </p>
-          </>
+          <SimulationSettings />
         ) : (
           <>
             {!o ? (

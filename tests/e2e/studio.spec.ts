@@ -107,7 +107,13 @@ test('themes and local account setup are usable', async ({ page }) => {
   await page.getByRole('button', { name: 'Toggle light / dark theme', exact: true }).click();
   await expect(page.locator('main')).toHaveClass(/theme-light/);
   await page.getByRole('button', { name: 'Account & cloud sync', exact: true }).click();
-  await expect(page.getByText('Cloud sync needs configuration')).toBeVisible();
+  const account = page.getByRole('dialog', { name: 'Your TerraLab account' });
+  await expect(account).toBeVisible();
+  if (await account.getByText('Cloud sync needs configuration').isVisible()) {
+    await expect(account.getByText('Cloud sync needs configuration')).toBeVisible();
+  } else {
+    await expect(account.getByRole('textbox', { name: 'Email', exact: true })).toBeVisible();
+  }
   await page.getByRole('button', { name: 'Close dialog' }).click();
   await expect(page.getByRole('heading', { name: 'Terrestrial network 2D' })).toBeVisible();
 });

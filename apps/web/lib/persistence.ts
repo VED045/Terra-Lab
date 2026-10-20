@@ -11,7 +11,8 @@ async function currentUser(db: SupabaseClient) {
 }
 export function supabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL,
-    key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    key =
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
   return (client ??= createClient(url, key));
 }
@@ -20,24 +21,57 @@ export interface StorageLike {
   setItem: (key: string, value: string) => void;
 }
 const KEY = 'terralab.projects.v1';
-export function localList(storage: StorageLike): Project[] {
+function readIndex(storage: StorageLike): {
+  raw: string | null;
+  entries: unknown[];
+  corrupt: boolean;
+} {
   const raw = storage.getItem(KEY);
-  if (!raw) return [];
-  const a: unknown = JSON.parse(raw);
-  if (!Array.isArray(a)) throw Error('Saved project index is invalid');
-  return a.map((p) => deserializeProject(JSON.stringify(p)));
+  if (!raw) return { raw, entries: [], corrupt: false };
+  try {
+    const entries: unknown = JSON.parse(raw);
+    if (Array.isArray(entries)) return { raw, entries, corrupt: false };
+  } catch {
+    /* Keep the original bytes for recovery before writing a new index. */
+  }
+  return { raw, entries: [], corrupt: true };
+}
+function readProject(value: unknown): Project | null {
+  try {
+    return deserializeProject(JSON.stringify(value));
+  } catch {
+    return null;
+  }
+}
+function writableEntries(storage: StorageLike): unknown[] {
+  const index = readIndex(storage);
+  if (index.corrupt && index.raw) {
+    // A failed backup aborts the save, so an unreadable index is never silently lost.
+    const recoveryKey = `${KEY}.recovery.${Date.now()}.${crypto.randomUUID()}`;
+    storage.setItem(recoveryKey, index.raw);
+  }
+  return index.entries;
+}
+export function localList(storage: StorageLike): Project[] {
+  return readIndex(storage).entries.flatMap((value) => {
+    const project = readProject(value);
+    return project ? [project] : [];
+  });
 }
 export function localSave(storage: StorageLike, p: Project) {
-  const clean = deserializeProject(serializeProject(p));
-  const list = localList(storage);
-  const i = list.findIndex((x) => x.id === p.id);
+  const clean = deserializeProject(JSON.stringify(p));
+  const list = writableEntries(storage);
+  const i = list.findIndex((x) => readProject(x)?.id === clean.id);
   if (i < 0) list.push(clean);
   else list[i] = clean;
   storage.setItem(KEY, JSON.stringify(list));
   return clean;
 }
 export function localDelete(storage: StorageLike, id: string) {
-  storage.setItem(KEY, JSON.stringify(localList(storage).filter((p) => p.id !== id)));
+  storage.setItem(
+    KEY,
+    JSON.stringify(writableEntries(storage).filter((p) => readProject(p)?.id !== id)),
+  );
 }
 export async function listProjects(): Promise<Project[]> {
   const db = supabase();
@@ -50,8 +84,7 @@ export async function listProjects(): Promise<Project[]> {
   return (data ?? []).map((r) => deserializeProject(JSON.stringify(r.config)));
 }
 export async function saveProject(p: Project): Promise<Project> {
-  const saved = { ...p, updatedAt: new Date().toISOString() };
-  serializeProject(saved);
+  const saved = deserializeProject(JSON.stringify({ ...p, updatedAt: new Date().toISOString() }));
   const db = supabase();
   if (db) {
     const user = await currentUser(db);

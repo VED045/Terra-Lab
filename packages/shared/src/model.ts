@@ -115,7 +115,25 @@ export function serializeProject(project: Project): string {
   return JSON.stringify(projectSchema.parse(project));
 }
 export function deserializeProject(text: string): Project {
-  return projectSchema.parse(JSON.parse(text));
+  const value: unknown = JSON.parse(text);
+  return projectSchema.parse(migrateProject(value));
+}
+// Early Phase 1 workspaces used readable IDs. Give those configurations a stable UUID
+// without changing object IDs, geometry, timestamps or any research parameters.
+function migrateProject(input: unknown): unknown {
+  if (!input || typeof input !== 'object') return input;
+  const project = input as Record<string, unknown>;
+  if (project.schemaVersion !== 1 || typeof project.id !== 'string' || !project.id) return input;
+  if (z.string().uuid().safeParse(project.id).success) return input;
+  let hex = '';
+  for (let i = 0; i < 4; i++) {
+    let h = 2166136261;
+    for (const char of `terralab:legacy:${i}:${project.id}`)
+      h = Math.imul(h ^ char.charCodeAt(0), 16777619);
+    hex += (h >>> 0).toString(16).padStart(8, '0');
+  }
+  const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-8${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20)}`;
+  return { ...project, id };
 }
 export function newObject(kind: 'anchor', p: Point, id?: string): Anchor;
 export function newObject(kind: 'receiver', p: Point, id?: string): Receiver;

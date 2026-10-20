@@ -32,7 +32,7 @@ type State = {
   setTime: (t: number) => void;
   play: (v: boolean) => void;
   setSpeed: (v: number) => void;
-  markSaved: (at: string) => void;
+  markSaved: (at: string, id?: string) => void;
   log: (text: string, level?: 'info' | 'warn') => void;
 };
 const clone = <T>(p: T): T => structuredClone(p);
@@ -170,7 +170,8 @@ export const useStudio = create<State>((set, get) => ({
       p.settings.speedMultiplier = speed;
     });
   },
-  markSaved: (updatedAt) => set((s) => ({ project: { ...s.project, updatedAt }, dirty: false })),
+  markSaved: (updatedAt, id) =>
+    set((s) => ({ project: { ...s.project, updatedAt, id: id ?? s.project.id }, dirty: false })),
   log: (text, level = 'info') =>
     set((s) => ({ logs: [...s.logs.slice(-99), { time: formatTime(s.time), text, level }] })),
 }));
