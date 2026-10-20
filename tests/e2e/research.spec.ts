@@ -20,6 +20,7 @@ test('research workspace saves, stars, searches, duplicates and reloads structur
   await row.getByRole('button', { name: /Star Outdoor research site/ }).click();
   await workspace.getByRole('button', { name: 'Starred Projects', exact: true }).click();
   await expect(workspace.locator('.research-project')).toHaveCount(1);
+  page.once('dialog', (d) => d.accept());
   await workspace.getByRole('button', { name: 'Duplicate', exact: true }).click();
   await workspace.getByRole('button', { name: 'My Projects', exact: true }).click();
   await workspace.getByRole('textbox', { name: 'Search research workspace' }).fill('copy');

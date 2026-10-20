@@ -37,8 +37,36 @@ import { LaboratoryCharts, LaboratoryObservations, labFormat as fmt } from './la
 import { LaboratoryObjectControls } from './laboratory-object-controls';
 import { PublicationDialog } from './publication-dialog';
 import { saveProject } from '@/lib/persistence';
+import { laboratoryWorkload } from '@/lib/lab-workload';
+import { ImportedSnapshotNotice } from './imported-snapshot-notice';
 const terminal = (status: string) => !['queued', 'running'].includes(status);
 const activeKey = 'terralab.laboratory.active';
+const parameterEffects: Partial<Record<LabNumberKey, string>> = {
+  trials: 'More trials improve sampling of variability and increase work linearly.',
+  duration:
+    'Longer trajectories add epochs and can reveal accumulated drift; duration does not set wall-clock runtime.',
+  sampleStep:
+    'Smaller intervals add observations and filter updates, increasing work; larger intervals may miss fast motion.',
+  seed: 'A fixed seed makes the supported synthetic observation generation repeatable; changing settings can still change the dataset.',
+  timingNs:
+    'Higher independent timing uncertainty increases range uncertainty by approximately 0.30 m per ns for one-way timing.',
+  noiseM:
+    'Higher range noise broadens measurements; geometry still determines how that noise affects position.',
+  dropout:
+    'Increasing dropout removes more observations and can cause insufficient-observation failures.',
+  availability: 'Lower availability leaves fewer usable anchors and may reduce fix rate.',
+  nlosProbability:
+    'Higher values introduce additional randomly selected NLOS events beyond geometric obstruction.',
+  nlosBiasM:
+    'Positive NLOS bias can produce systematic range error; robust estimators may still fail.',
+  clockProcessNoise:
+    'Higher values let filters adapt clock states faster but may increase estimate variability.',
+  processNoise:
+    'Higher process noise lets filters respond faster to motion changes but can reduce smoothing.',
+  robustScale:
+    'Larger scales make robust losses act more like least squares; smaller scales downweight more residuals.',
+  gridSize: 'A side length N adds N² stationary locations and multiplies experiment work.',
+};
 function Parameter({
   name,
   config,
@@ -52,6 +80,7 @@ function Parameter({
   return (
     <div className="lab-parameter">
       <NumberField
+        descriptionId={`help-${name}`}
         label={p.label}
         value={config[name]}
         unit={p.unit}
@@ -67,10 +96,13 @@ function Parameter({
         max={p.max}
         step={p.step}
         value={config[name]}
+        aria-describedby={`help-${name}`}
         onChange={(e) => change({ [name]: Number(e.target.value) })}
       />
-      <p>
-        {p.description} Default: {p.value} {p.unit}.
+      <p id={`help-${name}`} className="parameter-help">
+        {p.description} Default: {p.value} {p.unit}.{' '}
+        {parameterEffects[name] ??
+          'Applies only to the selected compatible model; inspect observations, availability and residuals when comparing changes.'}
       </p>
     </div>
   );
@@ -297,6 +329,7 @@ export function LaboratoryDialog({
     );
   }
   const groups = [...new Set(Object.values(labParameters).map((p) => p.group))];
+  const plannedWork = laboratoryWorkload(project, config);
   const records = result?.records ?? [];
   const selected = records[Math.min(index, Math.max(records.length - 1, 0))] ?? null;
   return (
@@ -329,6 +362,7 @@ export function LaboratoryDialog({
           {message}
         </p>
       )}
+      {result && <ImportedSnapshotNotice id={result.id} />}
       {tab === 'configure' && (
         <>
           <div className="lab-intro">
@@ -338,7 +372,11 @@ export function LaboratoryDialog({
               anchors · {project.objects.filter((o) => o.kind === 'receiver' && o.enabled).length}{' '}
               receivers
             </span>
-            <Button onClick={benchmark} disabled={Boolean(active)}>
+            <Button
+              help="Replace the current network with six anchors and three static synthetic receivers. Save or export your draft first."
+              onClick={benchmark}
+              disabled={Boolean(active)}
+            >
               Load six-anchor benchmark
             </Button>
           </div>
@@ -546,8 +584,38 @@ export function LaboratoryDialog({
               ))}
             </section>
           </div>
+          <p role="status" className="small-copy">
+            Planned work: {plannedWork.epochs.toLocaleString()} estimator epochs;{' '}
+            {plannedWork.observations.toLocaleString()} stored anchor observations.{' '}
+            {plannedWork.overBudget
+              ? 'Above the existing resource budget: reduce trials, duration, grid or sweep, or increase the sample interval.'
+              : 'Within the work budget; model compatibility and access are checked at submission.'}
+          </p>
+          <div className="duration-presets">
+            <span>Laboratory trajectory:</span>
+            {[0, 60, 120, 300].map((v) => (
+              <Button
+                key={v}
+                size="sm"
+                disabled={busy || Boolean(active)}
+                onClick={() => change({ duration: v })}
+              >
+                {v === 0 ? 'One epoch' : v + ' s'}
+              </Button>
+            ))}
+          </div>
+          <p className="small-copy">
+            Laboratory duration supports up to 5 minutes; baseline playback supports up to 60
+            minutes in Simulation settings. A longer duration adds epochs; increase the sample
+            interval or reduce trials/sweeps if the work budget is exceeded.
+          </p>
           <div className="lab-actions">
-            <Button variant="default" onClick={() => void run()} disabled={busy || Boolean(active)}>
+            <Button
+              help="Freeze this network, settings and seed into a new experiment. Estimators share each epoch’s observations; runtime grows with duration, trials, locations and sweep points."
+              variant="default"
+              onClick={() => void run()}
+              disabled={busy || Boolean(active)}
+            >
               Run reproducible experiment
             </Button>
             <span>
@@ -833,6 +901,24 @@ export function LaboratoryDialog({
                   void action(async () => {
                     const imported = readExperiment(await file.text());
                     await saveExperiment(imported);
+                    try {
+                      const raw = JSON.parse(
+                        localStorage.getItem('terralab.import-provenance.v1') ?? '{}',
+                      );
+                      localStorage.setItem(
+                        'terralab.import-provenance.v1',
+                        JSON.stringify({
+                          ...raw,
+                          [imported.id]: {
+                            importedAt: new Date().toISOString(),
+                            originalRunId: imported.id,
+                            source: 'local experiment JSON',
+                          },
+                        }),
+                      );
+                    } catch {
+                      /* Import success does not depend on optional provenance index storage. */
+                    }
                     setArchive(await savedExperiments());
                     setResult(imported);
                     setIndex(0);

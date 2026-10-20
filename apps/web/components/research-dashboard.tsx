@@ -31,10 +31,14 @@ import { downloadFile } from '@/lib/downloads';
 import { cloudStatusText, type AuthState } from '@/lib/auth-session';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
+import { RenameProject } from './rename-project';
+import { ProjectActivity } from './project-activity';
+import { RunComparison } from './run-comparison';
 const views = [
   'My Projects',
   'Recent Projects',
   'Shared With Me',
+  'Team Projects',
   'Starred Projects',
   'Archived Projects',
   'Recent Experiments',
@@ -66,6 +70,11 @@ export function ResearchDashboard({
   const [view, setView] = useState<View>('My Projects'),
     [search, setSearch] = useState(''),
     [sort, setSort] = useState('recent'),
+    [ownerFilter, setOwnerFilter] = useState(''),
+    [teamFilter, setTeamFilter] = useState(''),
+    [typeFilter, setTypeFilter] = useState(''),
+    [sinceFilter, setSinceFilter] = useState(''),
+    [statusFilter, setStatusFilter] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [message, setMessage] = useState('');
@@ -155,8 +164,26 @@ export function ResearchDashboard({
   const projects = (data?.projects ?? [])
     .filter((p) => {
       if (!p.config.name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (ownerFilter && p.owner_id !== ownerFilter) return false;
+      if (teamFilter && p.team_id !== teamFilter) return false;
+      if (sinceFilter && p.updated_at.slice(0, 10) < sinceFilter) return false;
+      if (
+        typeFilter &&
+        !p.config.objects.some(
+          (o) =>
+            o.kind === 'receiver' &&
+            (typeFilter === 'moving' ? o.mobility !== 'stationary' : o.mobility === 'stationary'),
+        )
+      )
+        return false;
+      if (
+        statusFilter &&
+        !data?.runs.some((r) => r.project_id === p.id && r.status === statusFilter)
+      )
+        return false;
       if (view === 'Archived Projects') return p.config.archived;
       if (p.config.archived) return false;
+      if (view === 'Team Projects') return p.team_id !== null;
       if (view === 'Shared With Me') return p.owner_id !== data?.userId && p.owner_id !== 'local';
       if (view === 'Starred Projects') return data?.stars.includes(p.id);
       if (view === 'Recent Projects') return recent.includes(p.id);
@@ -213,7 +240,11 @@ export function ResearchDashboard({
               workspace is preserved.
             </p>
           </div>
-          <Button variant="default" onClick={onRunDemo}>
+          <Button
+            variant="default"
+            help="Open a moving-receiver example and play the synthetic simulation. Your current workspace is preserved."
+            onClick={onRunDemo}
+          >
             Run demo
           </Button>
         </div>
@@ -226,6 +257,85 @@ export function ResearchDashboard({
         The dashboard loads up to 200 accessible rows per category; search and sorting apply to this
         loaded index.
       </p>
+      <details className="research-detail">
+        <summary>Project filters (loaded index)</summary>
+        <div className="research-inline">
+          <label>
+            Owner
+            <select
+              aria-label="Filter owner"
+              value={ownerFilter}
+              onChange={(e) => setOwnerFilter(e.target.value)}
+            >
+              <option value="">All owners</option>
+              {[...new Set(data?.projects.map((p) => p.owner_id))].map((id) => (
+                <option key={id}>{id}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Team
+            <select
+              aria-label="Filter team"
+              value={teamFilter}
+              onChange={(e) => setTeamFilter(e.target.value)}
+            >
+              <option value="">All teams</option>
+              {data?.teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Type
+            <select
+              aria-label="Filter project type"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+            >
+              <option value="">All project types</option>
+              <option value="moving">Moving receiver</option>
+              <option value="stationary">Stationary receiver</option>
+            </select>
+          </label>
+          <label>
+            Updated since
+            <input
+              type="date"
+              aria-label="Updated since"
+              value={sinceFilter}
+              onChange={(e) => setSinceFilter(e.target.value)}
+            />
+          </label>
+          <label>
+            Run status
+            <select
+              aria-label="Filter experiment status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="">Any status</option>
+              {['completed', 'cancelled', 'failed', 'interrupted'].map((v) => (
+                <option key={v}>{v}</option>
+              ))}
+            </select>
+          </label>
+          <Button
+            size="sm"
+            onClick={() => {
+              setOwnerFilter('');
+              setTeamFilter('');
+              setTypeFilter('');
+              setSinceFilter('');
+              setStatusFilter('');
+            }}
+          >
+            Clear filters
+          </Button>
+        </div>
+      </details>
       <div className="research-tabs">
         {views.map((v) => (
           <button
@@ -315,6 +425,7 @@ export function ResearchDashboard({
                   disabled={busy}
                   onClick={() =>
                     void action(async () => {
+                      if (!confirm('Create a separate copy of ' + p.config.name + '?')) return;
                       await saveProject(freshCopy(p.config));
                     })
                   }
@@ -327,6 +438,14 @@ export function ResearchDashboard({
                     disabled={busy}
                     onClick={() =>
                       void action(async () => {
+                        if (
+                          !confirm(
+                            (p.config.archived ? 'Restore ' : 'Archive ') +
+                              p.config.name +
+                              '? Historical experiments will remain unchanged.',
+                          )
+                        )
+                          return;
                         await saveMetadata(p.config, { archived: !p.config.archived });
                       })
                     }
@@ -366,6 +485,8 @@ export function ResearchDashboard({
               disabled={busy}
               onClick={() =>
                 void action(async () => {
+                  if (!confirm('Save the current draft as a separate private project copy?'))
+                    return;
                   const saved = await saveProject(freshCopy(project));
                   load(saved);
                   setMessage('Saved your edits as a new project.');
@@ -421,9 +542,19 @@ export function ResearchDashboard({
       )}
       {view === 'Recent Experiments' && (
         <>
+          <RunComparison
+            onSelect={setCompare}
+            ids={compare}
+            load={async (id) => {
+              const row = mergedRuns.find((r) => r.id === id);
+              if (!row) throw Error('Run no longer in accessible index');
+              return readRun(row);
+            }}
+          />
           <p className="small-copy">
             Completed records are immutable. Load a configuration into Laboratory to create a new
-            run. Select two runs for a full configuration difference.
+            run. Select two to four runs for metrics, scientific differences and reproducible
+            reports.
           </p>
           <div className="saved-project-list">
             {mergedRuns
@@ -439,7 +570,7 @@ export function ResearchDashboard({
                     onChange={(e) =>
                       setCompare(
                         e.target.checked
-                          ? [...compare.slice(-1), r.id]
+                          ? [...compare.slice(-3), r.id]
                           : compare.filter((id) => id !== r.id),
                       )
                     }
@@ -681,6 +812,26 @@ export function ResearchDashboard({
             Owner {selected.owner_id} · {selected.id} · revision {selected.version}. Project access
             also permits reading/exporting its complete experiment history.
           </p>
+          <p>
+            Last recorded editor: {revisions[0]?.author_id ?? 'not available'} ·{' '}
+            {selected.config.objects.filter((o) => o.kind === 'anchor').length} anchors ·{' '}
+            {selected.config.objects.filter((o) => o.kind === 'receiver').length} receivers.
+            Baseline: {selected.config.settings.engine}, {selected.config.settings.duration} s, seed{' '}
+            {selected.config.settings.seed}. Laboratory:{' '}
+            {selected.config.laboratory?.measurement ?? 'default TOA'}.
+          </p>
+          <details>
+            <summary>Recent recorded experiments</summary>
+            {data?.runs
+              .filter((r) => r.project_id === selected.id)
+              .slice(0, 5)
+              .map((r) => (
+                <p key={r.id}>
+                  {r.id} · {r.status} · {r.created_at}
+                </p>
+              ))}
+          </details>
+          <ProjectActivity projectId={selected.id} cloud={Boolean(data?.userId)} />
           <div className="research-inline">
             <Button onClick={() => openProject(selected.config)}>Reload cloud version</Button>
             <Button
@@ -697,19 +848,15 @@ export function ResearchDashboard({
             >
               Save as network template
             </Button>
-            <Button
+            <RenameProject
+              name={selected.config.name}
               disabled={busy || selected.role === 'viewer'}
-              onClick={() => {
-                const name = prompt('Project name', selected.config.name)?.trim();
-                if (name)
-                  void action(async () => {
-                    await saveMetadata(selected.config, { name });
-                    await refreshSelected(selected.id);
-                  });
+              onRename={async (name) => {
+                await saveMetadata(selected.config, { name });
+                await refreshSelected(selected.id);
+                await qc.invalidateQueries({ queryKey: ['projects'] });
               }}
-            >
-              Rename
-            </Button>
+            />
             <Button
               onClick={() =>
                 downloadFile(
@@ -782,6 +929,14 @@ export function ResearchDashboard({
                 acceptance; remove an existing member separately. Accepted invitations grant project
                 access, including its experiments and exports. A read-only recipient can retain
                 downloaded copies.
+              </p>
+              <p role="status">
+                Permission preview:{' '}
+                {role === 'editor' && shareKind === 'project'
+                  ? 'Editors can save revisions and run experiments, and read/export the full project history. They cannot transfer ownership or grant access.'
+                  : 'Viewers can read and export the project, revisions and experiment history. They cannot save revisions or start jobs.'}{' '}
+                Existing team/direct grants may provide greater access. No public access is enabled
+                by creating an invitation.
               </p>
               <div className="research-inline">
                 <select

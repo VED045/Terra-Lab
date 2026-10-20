@@ -1,6 +1,7 @@
 'use client';
 import { useStudio } from '@/lib/store';
 import { NumberField } from './ui/number-field';
+import { Button } from './ui/button';
 export function SimulationSettings() {
   const { project, edit } = useStudio();
   return (
@@ -12,6 +13,7 @@ export function SimulationSettings() {
         Scientific laboratory.
       </p>
       <NumberField
+        descriptionId="baseline-duration-help"
         label="Duration"
         value={project.settings.duration}
         unit="s"
@@ -23,6 +25,25 @@ export function SimulationSettings() {
           })
         }
       />
+      <p id="baseline-duration-help" className="small-copy">
+        Baseline playback duration in seconds, up to 3,600 s (60 minutes). Laboratory trajectory
+        duration is configured separately.
+      </p>
+      <div className="duration-presets">
+        {[60, 120, 300, 600, 3600].map((v) => (
+          <Button
+            key={v}
+            size="sm"
+            onClick={() =>
+              edit((p) => {
+                p.settings.duration = v;
+              })
+            }
+          >
+            {v / 60} min
+          </Button>
+        ))}
+      </div>
       <NumberField
         label="Time step"
         value={project.settings.step}
@@ -74,8 +95,8 @@ export function SimulationSettings() {
         Exclude obstructed links
       </label>
       <div className="info-note">
-        Obstructions are geometric flags only. Propagation and clock-error injection are reserved
-        for Phase 2.
+        Obstructions are geometric flags only. Use Scientific laboratory for explicit propagation
+        and clock-error models.
       </div>
       <div className="section-title">MEASUREMENT MODEL</div>
       <div className="model-equation">rᵢ = ‖p − aᵢ‖ + εᵢ</div>

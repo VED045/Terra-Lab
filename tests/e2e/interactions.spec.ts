@@ -95,23 +95,28 @@ test('project library supports rename, duplicate, archive and delete', async ({ 
     .locator('.research-project')
     .filter({ has: page.getByRole('button', { name: 'Star Outdoor research site', exact: true }) });
   await original.getByRole('button', { name: 'Details', exact: true }).click();
-  page.once('dialog', (d) => d.accept('Test field network'));
   await workspace.getByRole('button', { name: 'Rename', exact: true }).click();
+  const rename = page.getByRole('dialog', { name: 'Rename project', exact: true });
+  await rename
+    .getByRole('textbox', { name: 'Project name', exact: true })
+    .fill('Test field network');
+  await rename.getByRole('button', { name: 'Apply name', exact: true }).click();
   const renamed = workspace
     .locator('.research-project')
     .filter({ has: page.getByRole('button', { name: 'Star Test field network', exact: true }) });
   await expect(renamed).toHaveCount(1);
+  page.once('dialog', (d) => d.accept());
   await renamed.getByRole('button', { name: 'Duplicate', exact: true }).click();
-  const copy = workspace
-    .locator('.research-project')
-    .filter({
-      has: page.getByRole('button', { name: 'Star Test field network copy', exact: true }),
-    });
+  const copy = workspace.locator('.research-project').filter({
+    has: page.getByRole('button', { name: 'Star Test field network copy', exact: true }),
+  });
   await expect(copy).toHaveCount(1);
+  page.once('dialog', (d) => d.accept());
   await copy.getByRole('button', { name: 'Archive', exact: true }).click();
   await expect(copy).toHaveCount(0);
   await workspace.getByRole('button', { name: 'Archived Projects', exact: true }).click();
   await expect(copy.getByRole('button', { name: 'Restore', exact: true })).toBeVisible();
+  page.once('dialog', (d) => d.accept());
   await copy.getByRole('button', { name: 'Restore', exact: true }).click();
   await expect(copy).toHaveCount(0);
   await workspace.getByRole('button', { name: 'My Projects', exact: true }).click();

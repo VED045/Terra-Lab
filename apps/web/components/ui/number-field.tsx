@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 export function NumberField({
   label,
+  descriptionId,
   value,
   onChange,
   unit,
@@ -10,6 +11,7 @@ export function NumberField({
   step = 'any',
 }: {
   label: string;
+  descriptionId?: string;
   value: number;
   onChange: (v: number) => void;
   unit?: string;
@@ -42,6 +44,7 @@ export function NumberField({
       <div>
         <input
           aria-label={label}
+          aria-describedby={descriptionId}
           type="number"
           step={step}
           min={min}

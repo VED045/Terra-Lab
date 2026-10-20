@@ -86,6 +86,8 @@ import { useLabView } from '@/lib/lab-view';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 import { Tool } from './ui/tool';
+import { RenameProject } from './rename-project';
+import { ConflictDialog } from './conflict-dialog';
 const ScientificChart = dynamic(() => import('./scientific-chart'), {
   ssr: false,
   loading: () => <div className="chart-loading">Loading scientific chart…</div>,
@@ -137,6 +139,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
   const [auth, setAuth] = useState<AuthState>({ status: 'checking', email: null });
   const email = auth.email;
   const [notice, setNotice] = useState('');
+  const [conflictOpen, setConflictOpen] = useState(false);
   const [apiResult, setApiResult] = useState<Solution | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const mounted = useRef(false);
@@ -166,6 +169,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
       void qc.invalidateQueries({ queryKey: ['projects'] });
     },
     onError: (e) => {
+      if (e.message.includes('VERSION_CONFLICT')) setConflictOpen(true);
       log(`Save failed: ${e.message}`, 'warn');
       setNotice(`Save failed: ${e.message}`);
     },
@@ -542,6 +546,15 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
           <span>{project.name}</span>
           <ChevronDown size={13} />
         </button>
+        <RenameProject
+          name={project.name}
+          disabled={sceneView.mode === '3d' && !sceneView.editable}
+          onRename={(name) =>
+            edit((p) => {
+              p.name = name;
+            })
+          }
+        />
         <span className="phase-badge">{demoMode ? 'LIVE DEMO' : 'RESEARCH'}</span>
         {demoMode && (
           <Link className="demo-exit" href="/projects">
@@ -632,6 +645,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
           </Button>
           <Button
             size="sm"
+            help="Configure measurement models, estimators, noise and repeatable experiments. Laboratory settings are separate from the live baseline."
             aria-label="Scientific laboratory"
             onClick={() => {
               s.play(false);
@@ -680,6 +694,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
               labView.clear();
               run.mutate();
             }}
+            help="Solve the selected receiver at the current time using synthetic calibrated 2D ranges. This does not start a laboratory experiment."
             disabled={run.isPending}
           >
             <Play size={13} fill="currentColor" />
@@ -1081,6 +1096,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
         onRunDemo={runDemo}
       />
       <ShareDialog open={shareOpen} onOpenChange={setShareOpen} />
+      <ConflictDialog open={conflictOpen} onOpenChange={setConflictOpen} />
       <LaboratoryDialog open={laboratoryOpen} onOpenChange={setLaboratoryOpen} />
       <SignalDialog open={signalOpen} onOpenChange={setSignalOpen} />
       <SettingsDialog

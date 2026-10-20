@@ -52,6 +52,11 @@ for (const role of ['owner', 'editor', 'viewer'] as const)
     await page.route(origin + '/**', (route) => {
       const path = new URL(route.request().url()).pathname;
       if (path === '/auth/v1/user') return route.fulfill({ json: user });
+      if (
+        path === '/rest/v1/projects' &&
+        route.request().headers()['accept']?.includes('application/vnd.pgrst.object+json')
+      )
+        return route.fulfill({ json: { config: { ...p, cloudVersion: 3, name: 'Remote title' } } });
       if (path === '/rest/v1/projects')
         return route.fulfill({
           json: [
@@ -72,6 +77,11 @@ for (const role of ['owner', 'editor', 'viewer'] as const)
         });
       if (path === '/rest/v1/rpc/save_research_project') {
         writes++;
+        const body = route.request().postDataJSON();
+        if (role !== 'viewer' && body.p_expected === 3)
+          return route.fulfill({
+            json: { ...body.p_config, cloudVersion: 4, cloudOwnerId: p.cloudOwnerId },
+          });
         return route.fulfill({
           status: role === 'viewer' ? 403 : 409,
           json: {
@@ -113,11 +123,39 @@ for (const role of ['owner', 'editor', 'viewer'] as const)
       await x.fill('42');
       await x.press('Enter');
       await page.getByRole('button', { name: 'Save project', exact: true }).click();
+      const conflict = page.getByRole('dialog', { name: 'Resolve revision conflict', exact: true });
+      await expect(conflict).toBeVisible();
+      await conflict
+        .getByRole('button', { name: 'Compare with latest revision', exact: true })
+        .click();
+      await expect(conflict).toContainText('latest 3');
+      await expect(
+        conflict.getByRole('checkbox', { name: 'Reapply TX-01', exact: true }),
+      ).toBeVisible();
+      await conflict.getByRole('button', { name: 'Close dialog', exact: true }).click();
       await expect(page.getByRole('status')).toContainText('VERSION_CONFLICT');
       await expect(x).toHaveValue('42');
       expect(
         (await page.evaluate(() => JSON.parse(localStorage.getItem('terralab.active.v1')!)))
           .cloudVersion,
       ).toBe(2);
+      await page.getByRole('button', { name: 'Save project', exact: true }).click();
+      await conflict
+        .getByRole('button', { name: 'Compare with latest revision', exact: true })
+        .click();
+      await conflict.getByRole('checkbox', { name: 'Reapply TX-01', exact: true }).check();
+      await conflict
+        .getByRole('button', { name: 'Save selected changes against latest revision', exact: true })
+        .click();
+      await expect(conflict).not.toBeVisible();
+      const recovered = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem('terralab.active.v1')!),
+      );
+      expect(recovered.cloudVersion).toBe(4);
+      expect(recovered.name).toBe('Remote title');
+      expect(recovered.objects.find((o: { id: string }) => o.id === 'tx-1').x).toBe(42);
+      expect(
+        await page.evaluate(() => localStorage.getItem('terralab.conflict-recovery.v1')),
+      ).not.toBeNull();
     }
   });

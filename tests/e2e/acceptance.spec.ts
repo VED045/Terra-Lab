@@ -155,6 +155,7 @@ test('archiving the active project retains unsaved geometry and undo history', a
   const row = workspace
     .locator('.research-project')
     .filter({ has: page.getByRole('button', { name: 'Star Outdoor research site', exact: true }) });
+  page.once('dialog', (d) => d.accept());
   await row.getByRole('button', { name: 'Archive', exact: true }).click();
   await expect(row).toHaveCount(0);
   await workspace.getByRole('button', { name: 'Close dialog', exact: true }).click();

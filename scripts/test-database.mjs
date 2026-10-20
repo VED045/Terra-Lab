@@ -549,6 +549,104 @@ try {
       100,
     );
   });
+  await as('authenticated', owner);
+  const phase5id = crypto.randomUUID();
+  const phase5base = {
+    ...config,
+    id: phase5id,
+    schemaVersion: 2,
+    objects: [
+      ...config.objects,
+      {
+        id: 'vertical-building',
+        kind: 'obstacle',
+        x: 0,
+        y: 0,
+        width: 8,
+        height: 6,
+        verticalHeight: 30,
+        baseElevation: 5,
+        shape: 'rectangle',
+        vertices: [],
+      },
+    ],
+  };
+  const phase5saved = await save(phase5base, null);
+  await ok('schema 2 physical dimensions persist without changing XY height', async () => {
+    assert.equal(phase5saved.objects.at(-1).height, 6);
+    assert.equal(phase5saved.objects.at(-1).verticalHeight, 30);
+  });
+  await ok('schema 1 cannot silently accept physical dimensions', async () => {
+    await denied('select public.save_research_project($1::jsonb,null)', [
+      JSON.stringify({ ...phase5base, id: crypto.randomUUID(), schemaVersion: 1 }),
+    ]);
+  });
+  await ok(
+    'negative, null, nonnumeric and oversized vertical dimensions are rejected',
+    async () => {
+      for (const value of [-1, 0, null, '30', 10001]) {
+        const invalid = structuredClone(phase5base);
+        invalid.id = crypto.randomUUID();
+        invalid.objects.at(-1).verticalHeight = value;
+        await denied('select public.save_research_project($1::jsonb,null)', [
+          JSON.stringify(invalid),
+        ]);
+      }
+    },
+  );
+  await ok('recorded activity uses server actor/resource references', async () => {
+    const events = await query('select * from public.project_activity where project_id=$1', [
+      phase5id,
+    ]);
+    assert.equal(events.length, 1);
+    assert.equal(events[0].event, 'project_created');
+    assert.equal(events[0].actor_id, owner);
+    assert.equal(events[0].revision, 1);
+    assert.equal(Object.keys(events[0]).includes('config'), false);
+  });
+  await ok('owners cannot spoof, update or delete recorded activity', async () => {
+    await denied(
+      "insert into public.project_activity(project_id,resource_id,event) values($1,$1,'forged')",
+      [phase5id],
+    );
+    await denied("update public.project_activity set event='forged' where project_id=$1", [
+      phase5id,
+    ]);
+    await denied('delete from public.project_activity where project_id=$1', [phase5id]);
+  });
+  await as('authenticated', stranger);
+  await ok(
+    'unrelated users cannot read activity or save schema 2 projects they do not own',
+    async () => {
+      assert.equal(
+        (await query('select * from public.project_activity where project_id=$1', [phase5id]))
+          .length,
+        0,
+      );
+      await denied('select public.save_research_project($1::jsonb,1)', [
+        JSON.stringify(phase5saved),
+      ]);
+    },
+  );
+  await as('authenticated', owner);
+  await query('select public.manage_project_member($1,$2,$3)', [phase5id, viewer, 'viewer']);
+  await as('authenticated', viewer);
+  await ok('viewers can read recorded activity but cannot publish schema 2 revisions', async () => {
+    assert.ok(
+      (await query('select * from public.project_activity where project_id=$1', [phase5id]))
+        .length >= 2,
+    );
+    await denied('select public.save_research_project($1::jsonb,1)', [JSON.stringify(phase5saved)]);
+  });
+  await as('authenticated', owner);
+  await query('select public.manage_project_member($1,$2,$3)', [phase5id, viewer, null]);
+  await as('authenticated', viewer);
+  await ok('revocation removes future activity reads', async () =>
+    assert.equal(
+      (await query('select * from public.project_activity where project_id=$1', [phase5id])).length,
+      0,
+    ),
+  );
   console.log(
     `Database: ${passed} checks passed (actual PostgreSQL SQL/RLS; Auth/Storage fixture tables).`,
   );
