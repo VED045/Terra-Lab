@@ -1,10 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { test, expect } from '@playwright/test';
 const result = JSON.parse(
-  readFileSync(
-    new URL('../../docs/examples/timing-benchmark.result.json', import.meta.url),
-    'utf8',
-  ),
+  readFileSync(resolve('docs/examples/timing-benchmark.result.json'), 'utf8'),
 );
 test('opens laboratory controls, filters compatibility and retains numeric settings', async ({
   page,

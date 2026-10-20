@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { test, expect } from '@playwright/test';
-const csi = JSON.parse(
-  readFileSync(new URL('../../docs/examples/csi-example.result.json', import.meta.url), 'utf8'),
-);
+const csi = JSON.parse(readFileSync(resolve('docs/examples/csi-example.result.json'), 'utf8'));
 test('research workspace saves, stars, searches, duplicates and reloads structured networks', async ({
   page,
 }) => {
@@ -16,9 +15,9 @@ test('research workspace saves, stars, searches, duplicates and reloads structur
   await expect(workspace.getByRole('status')).toContainText('Current project saved');
   const row = workspace
     .locator('.research-project')
-    .filter({ has: page.getByRole('button', { name: /Star Terrestrial/ }) })
+    .filter({ has: page.getByRole('button', { name: /Star Outdoor research site/ }) })
     .first();
-  await row.getByRole('button', { name: /Star Terrestrial/ }).click();
+  await row.getByRole('button', { name: /Star Outdoor research site/ }).click();
   await workspace.getByRole('button', { name: 'Starred Projects', exact: true }).click();
   await expect(workspace.locator('.research-project')).toHaveCount(1);
   await workspace.getByRole('button', { name: 'Duplicate', exact: true }).click();

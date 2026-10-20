@@ -126,11 +126,11 @@ export function LaboratoryDialog({
           if (!alive) return;
           setResult(finished);
           setIndex(0);
-          setActive(null);
           try {
             localStorage.removeItem(activeKey);
           } catch {}
           if (finished.artifactUnavailable) {
+            setActive(null);
             setFailure(
               `Job ${finished.status}: ${finished.error ?? 'Result publication was interrupted'}. Progress and failure logs remain in the cloud job history; no complete result artifact was published.`,
             );
@@ -153,6 +153,9 @@ export function LaboratoryDialog({
           log(
             `Scientific experiment ${finished.status}: ${finished.completed}/${finished.planned} estimator epochs.`,
           );
+          // Clearing active tears down this effect. Finish local persistence and its
+          // feedback first, while this poll is still the current request.
+          setActive(null);
           return;
         }
         setResult(status);

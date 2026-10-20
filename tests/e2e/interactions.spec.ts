@@ -90,28 +90,35 @@ test('project library supports rename, duplicate, archive and delete', async ({ 
   await page.getByRole('button', { name: 'Save project', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('Project saved');
   await page.getByRole('button', { name: 'Project library', exact: true }).click();
+  const workspace = page.getByRole('dialog', { name: 'Research workspace' });
+  const original = workspace
+    .locator('.research-project')
+    .filter({ has: page.getByRole('button', { name: 'Star Outdoor research site', exact: true }) });
+  await original.getByRole('button', { name: 'Details', exact: true }).click();
   page.once('dialog', (d) => d.accept('Test field network'));
-  await page.getByRole('button', { name: 'Rename Outdoor research site' }).click();
-  await expect(
-    page.getByRole('button', { name: /Test field network.*transmitters/ }),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Duplicate Test field network' }).click();
-  await expect(
-    page.getByRole('button', { name: 'Archive Test field network copy', exact: true }),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Archive Test field network copy', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Unarchive Test field network copy', exact: true }),
-  ).toHaveCount(0);
-  await page.getByRole('checkbox', { name: 'Show archived' }).check();
-  await expect(
-    page.getByRole('button', { name: 'Unarchive Test field network copy', exact: true }),
-  ).toBeVisible();
+  await workspace.getByRole('button', { name: 'Rename', exact: true }).click();
+  const renamed = workspace
+    .locator('.research-project')
+    .filter({ has: page.getByRole('button', { name: 'Star Test field network', exact: true }) });
+  await expect(renamed).toHaveCount(1);
+  await renamed.getByRole('button', { name: 'Duplicate', exact: true }).click();
+  const copy = workspace
+    .locator('.research-project')
+    .filter({
+      has: page.getByRole('button', { name: 'Star Test field network copy', exact: true }),
+    });
+  await expect(copy).toHaveCount(1);
+  await copy.getByRole('button', { name: 'Archive', exact: true }).click();
+  await expect(copy).toHaveCount(0);
+  await workspace.getByRole('button', { name: 'Archived Projects', exact: true }).click();
+  await expect(copy.getByRole('button', { name: 'Restore', exact: true })).toBeVisible();
+  await copy.getByRole('button', { name: 'Restore', exact: true }).click();
+  await expect(copy).toHaveCount(0);
+  await workspace.getByRole('button', { name: 'My Projects', exact: true }).click();
+  await expect(copy).toHaveCount(1);
   page.once('dialog', (d) => d.accept());
-  await page.getByRole('button', { name: 'Delete Test field network copy', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Unarchive Test field network copy', exact: true }),
-  ).toHaveCount(0);
+  await copy.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(copy).toHaveCount(0);
 });
 test('mobile workspace fits the viewport and opens a usable inspector', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });

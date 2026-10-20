@@ -2,7 +2,7 @@
 
 Research workspace for GNSS-independent positioning. Phase 3 adds versioned cloud projects, teams, authenticated sharing, immutable experiment history, comparison, scientific exports and deployment configuration. The Phase 1 editor and validated Phase 2 numerical model remain in place. Platform 0.3.0; positioning model 0.2.0; project schema 1.
 
-**Cloud upgrade:** the existing Supabase project needs migrations **002 and 003**, in order. Migration 001 was already used for Phase 1/2; do not rerun it. The implementation has not applied hosted migrations or deployed services. See [deployment steps](docs/DEPLOYMENT.md).
+**Cloud upgrade:** the existing Supabase project needs migrations **002, 003 and 004**, in order after verifying the actual ledger and backup. Migration 001 was already used for Phase 1/2; do not rerun it. The implementation has not applied hosted migrations or deployed services. See [deployment steps](docs/DEPLOYMENT.md).
 
 ## Run locally
 
@@ -48,10 +48,14 @@ The database harness executes actual PostgreSQL grants/RLS/RPCs with fixture Aut
 
 Next.js frontend: Vercel root `apps/web`, public Supabase URL/key and server API URL. FastAPI: root Dockerfile/Render web service with exact CORS origins. Numerical work: separate Render worker; server-only service-role JWT belongs only there. Supabase: versioned migrations, private buckets, checked RPCs and RLS. Production startup refuses filesystem-only jobs. `render.yaml`, `apps/web/vercel.json`, `.env.example`, local Supabase configuration and safe seed are included. [Exact deployment and two-user verification guide](docs/DEPLOYMENT.md).
 
+## Phase 4A acceptance
+
+The local acceptance audit fixes revoked-job cancellation, unpublished chunk reads, queue and artifact limits, unsaved metadata edits, snapshot feedback and noiseless angular robust initialization. Final evidence: 145 default JavaScript tests plus the separately enabled integration, 178 Python tests, 44 SQL checks and 24 serial Chromium cases pass, along with worker integration, type-check and build. Parallel browser reload, real hosted Auth/Storage, migration state, deployment/container and live concurrency remain unverified or pending. No hosted change or deployment was performed. See [acceptance matrix](docs/acceptance/ACCEPTANCE_MATRIX.md), [security review](docs/acceptance/SECURITY_REVIEW.md), [collaboration plan](docs/acceptance/COLLABORATION_TEST_PLAN.md) and [deployment readiness](docs/acceptance/DEPLOYMENT_READINESS.md).
+
 ## Documentation
 
 - [User guide](docs/USER_GUIDE.md), [troubleshooting](docs/TROUBLESHOOTING.md), [API](docs/API.md), [local setup](docs/LOCAL_SETUP.md).
 - [Scientific methods](docs/PHASE_2_METHODS.md), [parameter reference](docs/LAB_PARAMETER_REFERENCE.md), [advanced CSI scope/gaps](docs/ADVANCED_SIGNALS.md), [research methodology matrix](docs/research/methodology-matrix.md).
 - [Phase 3 delivery report](docs/PHASE_3_REPORT.md), [implementation progress](docs/IMPLEMENTATION_PROGRESS.md), [historical Phase 2 report](docs/PHASE_2_COMPLETION_REPORT.md).
 
-Synthetic horizontal positioning is not validated RF hardware performance. WLS/MLE assume nominal Gaussian covariance, robust methods need not improve every case, and EKF/UKF use constant velocity. Scientific model version 0.2.0 remains authoritative for existing results. Cloud/browser/provider acceptance is not inferred from a local production build. Phase 3 is the final scope; unrelated features have not been added.
+Synthetic horizontal positioning is not validated RF hardware performance. WLS/MLE assume nominal Gaussian covariance, robust methods need not improve every case, and EKF/UKF use constant velocity. Scientific model version 0.2.0 remains authoritative for existing results. Cloud/browser/provider acceptance is not inferred from a local production build. Phase 4A stops at acceptance and minimal corrective fixes; no 3D or unrelated features have been added.

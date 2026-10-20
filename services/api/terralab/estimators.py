@@ -66,6 +66,13 @@ def nonlinear(frame, estimator='wls', initial=None):
         span=max(np.ptp(anchors,axis=0).max(),1)
         for direction in [[.3,.2],[-.3,-.2]]:
             candidate=np.array(initial,copy=True); candidate[:2]=center+span*np.array(direction); starts.append(candidate)
+    # At the zero-noise angular covariance floor, Huber's saturated Jacobian
+    # can terminate outside its narrow quadratic basin. An observation-only WLS
+    # start reaches that basin; every candidate still minimizes the same robust
+    # objective and the lowest converged cost wins. No truth is used.
+    if frame.model=='aoa' and loss in ['huber','soft_l1']:
+        try: starts.append(nonlinear(frame,'wls',initial))
+        except NoFix: pass
     results=[least_squares(fun,start,jac=jac,loss=loss,f_scale=frame.config.robustScale,max_nfev=frame.config.maxIterations,ftol=1e-10,xtol=1e-10,gtol=1e-10,x_scale='jac') for start in starts]
     valid=[r for r in results if r.success and np.all(np.isfinite(r.x))]
     if not valid: raise NoFix('Nonlinear estimator did not converge within evaluation budget')

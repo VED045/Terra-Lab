@@ -1,6 +1,6 @@
 # TerraLab architecture
 
-Platform API 0.3.0; validated positioning model 0.2.0; project schema 1. Phase 3 extends the existing application and leaves the numerical `execute`, `generate`, `estimate` and tracking implementations unchanged.
+Platform API 0.3.0; validated positioning model 0.2.0; project schema 1. Phase 3 retained the scientific implementation. Phase 4A adds a minimal observation-only initialization for angular robust fits after a noiseless acceptance failure; measurement equations, generation, metrics and tracking are unchanged. See `acceptance/ACCEPTANCE_MATRIX.md` for current evidence and limitations.
 
 ```mermaid
 flowchart LR

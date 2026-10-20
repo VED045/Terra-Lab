@@ -222,8 +222,8 @@ try {
     ),
   );
   await query(
-    "select public.finish_research_job($1,$2,'cancelled','{}','[]','[]','0.2.0',1,2,null)",
-    [job, claimed.lease_token],
+    "select public.finish_research_job($1,$2,'cancelled',$3::jsonb,'[]','[]','0.2.0',1,2,null)",
+    [job, claimed.lease_token, JSON.stringify({ paths: [job + '/part-0.json'] })],
   );
   await query("insert into storage.objects(bucket_id,name) values('research-results',$1)", [
     job + '/part-0.json',
@@ -354,6 +354,201 @@ try {
       assert.equal((await query('select * from storage.objects')).length, 0);
     },
   );
+  await as('authenticated', owner);
+  const templateId = (
+    await query("select public.save_network_template($1,'Acceptance template') as id", [pid])
+  )[0].id;
+  await ok('all non-project invitation kinds reject editor grants', async () => {
+    for (const [kind, target] of [
+      ['configuration', null],
+      ['template', templateId],
+      ['experiment', job],
+      ['report', job],
+    ])
+      await denied("select public.create_research_share($1,'editor',$2,$3)", [pid, kind, target]);
+  });
+  await ok('expired and malformed invitations do not grant access', async () => {
+    const expired = (
+      await query("select public.create_research_share($1,'viewer','project') as token", [pid])
+    )[0].token;
+    await db.exec('RESET ROLE');
+    await query(
+      "update public.share_links set expires_at=now()-interval '1 minute' where token_hash=encode(sha256(convert_to($1,'UTF8')),'hex')",
+      [expired],
+    );
+    await as('authenticated', stranger);
+    for (const bad of [expired, '', null, 'z'.repeat(64), '../project'])
+      await denied('select public.redeem_research_share($1)', [bad]);
+    assert.equal((await query('select * from public.projects')).length, 0);
+  });
+  await as('authenticated', owner);
+  const reusable = (
+    await query("select public.create_research_share($1,'viewer','report',$2) as token", [pid, job])
+  )[0].token;
+  await as('authenticated', stranger);
+  await ok(
+    'report invitation is reusable until revoked and grants documented full viewer history',
+    async () => {
+      for (let i = 0; i < 2; i++)
+        assert.equal(
+          (await query('select public.redeem_research_share($1) as r', [reusable]))[0].r.role,
+          'viewer',
+        );
+      assert.equal((await query('select * from public.project_revisions')).length, 5);
+      assert.equal((await query('select * from public.experiment_runs')).length, 1);
+      await denied('select public.save_research_project($1::jsonb,5)', [JSON.stringify(config)]);
+      await denied('select public.revoke_research_share($1)', [link]);
+    },
+  );
+  await as('authenticated', owner);
+  const reusableId = (
+    await query(
+      "select id from public.share_links where token_hash=encode(sha256(convert_to($1,'UTF8')),'hex')",
+      [reusable],
+    )
+  )[0].id;
+  await query('select public.revoke_research_share($1)', [reusableId]);
+  await as('authenticated', stranger);
+  await ok(
+    'link revocation stops redemption but existing members keep their documented grant',
+    async () => {
+      await denied('select public.redeem_research_share($1)', [reusable]);
+      assert.equal((await query('select * from public.projects')).length, 1);
+    },
+  );
+  await as('authenticated', owner);
+  await query("select public.manage_team_member($1,$2,'editor')", [team, stranger]);
+  await as('authenticated', stranger);
+  await ok(
+    'team editor takes precedence over direct viewer without becoming project owner',
+    async () => {
+      assert.equal(
+        (await query('select private.project_role($1) as role', [pid]))[0].role,
+        'editor',
+      );
+      await denied('select public.delete_research_project($1)', [pid]);
+      await denied('select public.assign_project_team($1,null,5)', [pid]);
+    },
+  );
+  await as('authenticated', owner);
+  await query('select public.manage_project_member($1,$2,null)', [pid, stranger]);
+  await as('authenticated', stranger);
+  await ok('removing only direct access preserves independent team access', async () =>
+    assert.equal((await query('select * from public.projects')).length, 1),
+  );
+  await as('authenticated', owner);
+  await query('select public.manage_team_member($1,$2,null)', [team, stranger]);
+  await as('authenticated', stranger);
+  await ok(
+    'removing final team grant revokes all history and object reads on the next request',
+    async () => {
+      for (const table of [
+        'projects',
+        'project_revisions',
+        'research_jobs',
+        'experiment_runs',
+        'research_artifacts',
+        'storage.objects',
+      ])
+        assert.equal((await query('select * from ' + table)).length, 0);
+    },
+  );
+  await as('authenticated', editor);
+  await ok('viewer invitation cannot silently downgrade an existing editor', async () => {
+    await query('select public.redeem_research_share($1)', [token.replace(/./g, '0')]).then(
+      () => assert.fail('invalid token accepted'),
+      () => {},
+    );
+    await as('authenticated', owner);
+    const viewerToken = (
+      await query("select public.create_research_share($1,'viewer','project') as token", [pid])
+    )[0].token;
+    await as('authenticated', editor);
+    await query('select public.redeem_research_share($1)', [viewerToken]);
+    assert.equal((await query('select private.project_role($1) as role', [pid]))[0].role, 'editor');
+  });
+  await as('service_role', null);
+  await query("insert into storage.objects(bucket_id,name) values('research-results',$1)", [
+    job + '/stale-attempt.json',
+  ]);
+  await as('authenticated', viewer);
+  await ok('published job does not expose unlisted chunks from a stale attempt', async () =>
+    assert.equal(
+      (await query('select * from storage.objects where name=$1', [job + '/stale-attempt.json']))
+        .length,
+      0,
+    ),
+  );
+  await as('authenticated', editor);
+  const revokedJob = (
+    await query('select public.enqueue_research_job($1::jsonb,gen_random_uuid()) as id', [
+      JSON.stringify(request),
+    ])
+  )[0].id;
+  await as('authenticated', owner);
+  await query('select public.manage_project_member($1,$2,null)', [pid, editor]);
+  await as('authenticated', editor);
+  await ok(
+    'revoked job submitter cannot cancel a project job after losing project access',
+    async () => {
+      await denied('select public.cancel_research_job($1)', [revokedJob]);
+    },
+  );
+  await as('service_role', null);
+  await query("insert into storage.objects(bucket_id,name) values('research-results',$1)", [
+    revokedJob + '/unpublished.json',
+  ]);
+  await as('authenticated', viewer);
+  await ok('viewer cannot read unpublished worker chunks before final publication', async () => {
+    assert.equal(
+      (
+        await query(
+          "select * from storage.objects where bucket_id='research-results' and name=$1",
+          [revokedJob + '/unpublished.json'],
+        )
+      ).length,
+      0,
+    );
+  });
+  await as('authenticated', viewer);
+  await ok('128-file artifact limit includes uploads without published metadata', async () => {
+    for (let i = 1; i < 128; i++)
+      await query("insert into storage.objects(bucket_id,name) values('research-artifacts',$1)", [
+        viewer + '/' + job + '/' + crypto.randomUUID() + '.json',
+      ]);
+    await denied("insert into storage.objects(bucket_id,name) values('research-artifacts',$1)", [
+      viewer + '/' + job + '/' + crypto.randomUUID() + '.json',
+    ]);
+  });
+  await as('authenticated', owner);
+  await query("select public.manage_project_member($1,$2,'editor')", [pid, stranger]);
+  await db.exec('RESET ROLE');
+  await query(
+    "insert into public.research_jobs(owner_id,project_id,request,request_hash,idempotency_key) select $1,$2,$3::jsonb,'fixture',gen_random_uuid() from generate_series(1,99-(select count(*) from public.research_jobs where status in ('queued','running'))::int)",
+    [owner, pid, JSON.stringify(request)],
+  );
+  await as('authenticated', stranger);
+  await ok('global queue accepts job 100 and rejects 101 across user boundaries', async () => {
+    await query('select public.enqueue_research_job($1::jsonb,gen_random_uuid())', [
+      JSON.stringify(request),
+    ]);
+    await assert.rejects(
+      () =>
+        query('select public.enqueue_research_job($1::jsonb,gen_random_uuid())', [
+          JSON.stringify(request),
+        ]),
+      /Global queue is full/,
+    );
+    await db.exec('RESET ROLE');
+    assert.equal(
+      (
+        await query(
+          "select count(*)::int as n from public.research_jobs where status in ('queued','running')",
+        )
+      )[0].n,
+      100,
+    );
+  });
   console.log(
     `Database: ${passed} checks passed (actual PostgreSQL SQL/RLS; Auth/Storage fixture tables).`,
   );

@@ -93,3 +93,8 @@ The laboratory plots error/time, truth/estimate trajectory, histograms, empirica
 Every new numeric control has a slider, direct numeric entry, units, bounds, defaults and interpretation in the UI and [parameter reference](LAB_PARAMETER_REFERENCE.md). The source catalog is `packages/shared/src/laboratory.ts`; per-object timing/RF controls are in `laboratory-object-controls.tsx`. Existing inspector mobility fields remain available. Controls apply only to their documented measurement/estimator modes; a zero-duration run initializes filters once and is not a trajectory tracking experiment.
 
 No particle filter, collaboration, advanced multiband CSI, RF waveform simulation or Phase 3 work is included.
+
+
+## Phase 4A numerical correction
+
+The acceptance matrix exercises all 62 declared model/estimator pairs at a noiseless known position with the existing `<1e-5 m` tolerance. AOA/Huber originally terminated 0.000263471965 m away at the covariance floor. Angular Huber/Soft-L1 now also try an observation-only WLS initialization; all candidates still minimize the same robust loss and the lowest converged cost wins. No ground truth, measurement equation, covariance, failure filtering or tolerance was changed. Existing stored outputs remain immutable; implementation commit/file hashes distinguish the correction. Broader robust-performance guarantees are not claimed.

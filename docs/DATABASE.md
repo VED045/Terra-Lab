@@ -1,6 +1,6 @@
 # Database schema, authorization and migrations
 
-Apply migrations in filename order. On a Phase 2 project where `202610200001_projects.sql` is already installed, apply **002 and 003 only**. They are versioned, transactional migration files, not scripts to run repeatedly. Back up your database and try a staging/local stack first. The code has not applied changes to the user's hosted Supabase project.
+Apply migrations in filename order. On a Phase 2 project where `202610200001_projects.sql` is already installed, apply missing **002, 003 and 004**, in order after ledger/backup verification and approval. They are versioned, transactional migration files, not scripts to run repeatedly. Back up your database and try a staging/local stack first. The code has not applied changes to the user's hosted Supabase project.
 
 | Table | Purpose / write contract |
 |---|---|
@@ -36,8 +36,8 @@ All five invitation kinds (`project`, `template`, `configuration`, `experiment`,
 Private Storage buckets:
 
 - `project-exports`: retained Phase 1/2 personal backups, 2 MB JSON objects, first folder=user ID; existing per-owner policies.
-- `research-results`: worker-only immutable uploads, 2 MB JSON objects. Read access follows the job's current project permission. No authenticated upload/update/delete policy.
-- `research-artifacts`: 2 MB derivative files, allowed JSON/PDF/PNG/SVG/CSV. Upload path begins with authenticated user ID/run ID; current project access required. Metadata is published after upload. No authenticated update/delete policy. Maximum 128 metadata records per run.
+- `research-results`: worker-only immutable uploads, 2 MB JSON objects. Read access requires the current project permission, a published immutable run, and the exact object path in its manifest (migration 004). No authenticated upload/update/delete policy.
+- `research-artifacts`: 2 MB derivative files, allowed JSON/PDF/PNG/SVG/CSV. Upload path begins with authenticated user ID/run ID; current project access required. Metadata is published after upload. No authenticated update/delete policy. Maximum 128 metadata records and 128 uploaded objects per run, including unregistered uploads (migration 004). A checked private policy function serializes upload counts.
 
 `npm run test:database` executes all migrations unchanged in embedded PostgreSQL with minimal Auth/Storage fixture tables. It actually exercises SQL grants, RLS, RPC authorization, token redemption/revocation, optimistic versioning, immutability, storage policies, lease retry/fencing, cancellation and queue limits. It does **not** run Supabase Auth token issuance or Storage HTTP upload services. Those require the hosted/local two-user acceptance checklist.
 

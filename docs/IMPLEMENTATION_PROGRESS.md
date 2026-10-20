@@ -1,6 +1,6 @@
 # TerraLab implementation progress
 
-Status: **Phase 3 implementation and local automated validation delivered; hosted activation/browser acceptance pending.** The user explicitly approved Phase 2 and requested Phase 3 on 20 October 2026. Positioning model 0.2.0 is preserved. Hosted migrations/deployment, live Auth/Storage and browser acceptance have not been performed; current evidence is recorded in PHASE_3_REPORT.md.
+Status: **Phase 4A local acceptance and minimal fixes delivered; real hosted activation/acceptance remains pending.** Current results are in `acceptance/ACCEPTANCE_MATRIX.md`; historical reports below retain their original scope. The user explicitly approved Phase 2 and requested Phase 3 on 20 October 2026. Positioning model 0.2.0 is preserved. Hosted migrations/deployment and live Auth/Storage remain pending. Current local browser and regression evidence is recorded in acceptance/ACCEPTANCE_MATRIX.md; PHASE_3_REPORT.md is historical.
 
 Delivery directory: `C:\Users\Ved\Desktop\TerraLab`.
 Date: 20 October 2026.

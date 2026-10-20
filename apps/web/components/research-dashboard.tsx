@@ -130,6 +130,18 @@ export function ResearchDashboard({
       setAccess(a);
     }
   }
+  async function saveMetadata(config: Project, patch: Partial<Pick<Project, 'name' | 'archived'>>) {
+    const state = useStudio.getState();
+    const original = state.project.id === config.id ? state.project : config;
+    const submitted = { ...original, ...patch };
+    const saved = await saveProject(submitted);
+    if (useStudio.getState().project.id === original.id) {
+      // Keep live geometry and undo history, including edits made while saving.
+      useStudio.getState().edit((p) => Object.assign(p, patch), false);
+      useStudio.getState().acceptSave(submitted, saved);
+    }
+    return saved;
+  }
   async function refreshSelected(id: string) {
     const index = await workspaceIndex();
     const p = index.projects.find((p) => p.id === id);
@@ -303,11 +315,7 @@ export function ResearchDashboard({
                     disabled={busy}
                     onClick={() =>
                       void action(async () => {
-                        const saved = await saveProject({
-                          ...p.config,
-                          archived: !p.config.archived,
-                        });
-                        if (project.id === p.id) load(saved);
+                        await saveMetadata(p.config, { archived: !p.config.archived });
                       })
                     }
                   >
@@ -683,8 +691,7 @@ export function ResearchDashboard({
                 const name = prompt('Project name', selected.config.name)?.trim();
                 if (name)
                   void action(async () => {
-                    const saved = await saveProject({ ...selected.config, name });
-                    if (project.id === selected.id) load(saved);
+                    await saveMetadata(selected.config, { name });
                     await refreshSelected(selected.id);
                   });
               }}
@@ -724,6 +731,15 @@ export function ResearchDashboard({
                 disabled={busy || selected.role === 'viewer'}
                 onClick={() =>
                   void action(async () => {
+                    const current = useStudio.getState();
+                    if (
+                      current.project.id === selected.id &&
+                      current.dirty &&
+                      !window.confirm(
+                        'Restore this revision and replace unsaved edits? Cancel to save or export your current edits first.',
+                      )
+                    )
+                      return;
                     const p = await researchRpc<Project>('restore_project_revision', {
                       p_id: selected.id,
                       p_version: r.version,
