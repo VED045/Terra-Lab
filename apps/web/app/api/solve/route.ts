@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         detail:
-          'Python service unavailable. Start the API or choose Browser QR in simulation settings.',
+          'Python service is waking up or temporarily unavailable. Retry shortly, or choose Browser QR in simulation settings.',
       },
       { status: 503 },
     );

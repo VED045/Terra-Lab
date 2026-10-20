@@ -2,7 +2,7 @@
 
 Research workspace for GNSS-independent positioning. Phase 3 adds versioned cloud projects, teams, authenticated sharing, immutable experiment history, comparison, scientific exports and deployment configuration. The Phase 1 editor and validated Phase 2 numerical model remain in place. Platform 0.3.0; positioning model 0.2.0; project schema 1.
 
-**Cloud upgrade:** the existing Supabase project needs migrations **002, 003 and 004**, in order after verifying the actual ledger and backup. Migration 001 was already used for Phase 1/2; do not rerun it. The implementation has not applied hosted migrations or deployed services. See [deployment steps](docs/DEPLOYMENT.md).
+**Cloud upgrade:** the existing Supabase project needs migrations **002, 003 and 004**, in order after verifying the actual ledger and backup. Migration 001 was already used for Phase 1/2; do not rerun it. The implementation has not applied hosted migrations or deployed services. See [deployment steps](docs/DEPLOYMENT.md) and the [single free Render service guide](docs/RENDER-FREE.md).
 
 ## Run locally
 
@@ -26,7 +26,7 @@ Open [TerraLab](http://127.0.0.1:3000), [API health](http://127.0.0.1:8000/healt
 6. Grant viewer/editor access directly or through a team. Invitations expire in seven days and require sign-in. Every invitation kind grants the project's complete history/export scope; tokens are stored hashed. Revocation stops new redemption; remove accepted members separately. No automatic email or real-time multiwriter layer is claimed.
 7. Explore CSI lab separately: synthetic multipath/channel data, matched/weighted scans, experimental MUSIC and restricted single-band ESPRIT. Full Kazaz MBWDE, CRB reproduction and hardware validation remain documented gaps.
 
-Cloud jobs use PostgreSQL queue state and a separate Render worker with fenced leases, retries, progress, cancellation and immutable Storage chunks. The browser checks the full artifact hash. The API uses the caller's JWT; only the worker has a server-only service credential. Existing per-user Phase 2 snapshots remain personal backups. [Architecture](docs/ARCHITECTURE.md) and [database/security contracts](docs/DATABASE.md).
+Cloud jobs use PostgreSQL queue state and a Render worker (combined with the API on Free, or separate on paid plans) with fenced leases, retries, progress, cancellation and immutable Storage chunks. The browser checks the full artifact hash. The API uses the caller's JWT; only the worker has a server-only service credential. Existing per-user Phase 2 snapshots remain personal backups. [Architecture](docs/ARCHITECTURE.md) and [database/security contracts](docs/DATABASE.md).
 
 ## Validate and reproduce
 
@@ -35,6 +35,8 @@ npm test
 npm run test:python
 npm run test:database
 npm run test:worker
+npm run test:combined
+npm run test:e2e:auth
 npm run typecheck
 npm run build
 node scripts/python.mjs scripts/benchmark_phase2.py --trials 100
@@ -46,7 +48,7 @@ The database harness executes actual PostgreSQL grants/RLS/RPCs with fixture Aut
 
 ## Deployment
 
-Next.js frontend: Vercel root `apps/web`, public Supabase URL/key and server API URL. FastAPI: root Dockerfile/Render web service with exact CORS origins. Numerical work: separate Render worker; server-only service-role JWT belongs only there. Supabase: versioned migrations, private buckets, checked RPCs and RLS. Production startup refuses filesystem-only jobs. `render.yaml`, `apps/web/vercel.json`, `.env.example`, local Supabase configuration and safe seed are included. [Exact deployment and two-user verification guide](docs/DEPLOYMENT.md).
+Next.js frontend: Vercel root `apps/web`, public Supabase URL/key and server API URL. FastAPI: root Dockerfile/Render web service with exact CORS origins. Numerical work: set TERRALAB_RUN_WORKER=1 and SUPABASE_SECRET_KEY on the same free Web Service to run a supervised queue worker beside the API, or use the separate paid worker. The supervisor removes worker secrets from the API child environment. Supabase: versioned migrations, private buckets, checked RPCs and RLS. Production startup refuses filesystem-only jobs. `render.yaml`, `apps/web/vercel.json`, `.env.example`, local Supabase configuration and safe seed are included. [Exact deployment and two-user verification guide](docs/DEPLOYMENT.md), [free combined setup](docs/RENDER-FREE.md).
 
 ## Phase 4A acceptance
 
@@ -59,3 +61,7 @@ The local acceptance audit fixes revoked-job cancellation, unpublished chunk rea
 - [Phase 3 delivery report](docs/PHASE_3_REPORT.md), [implementation progress](docs/IMPLEMENTATION_PROGRESS.md), [historical Phase 2 report](docs/PHASE_2_COMPLETION_REPORT.md).
 
 Synthetic horizontal positioning is not validated RF hardware performance. WLS/MLE assume nominal Gaussian covariance, robust methods need not improve every case, and EKF/UKF use constant velocity. Scientific model version 0.2.0 remains authoritative for existing results. Cloud/browser/provider acceptance is not inferred from a local production build. Phase 4A stops at acceptance and minimal corrective fixes; no 3D or unrelated features have been added.
+
+## Workspace and demo update
+
+Signed-in visits to / open the Research workspace at /projects; signed-out visits retain Network studio. /studio always opens the editor. Projects includes projects, runs, teams, templates and a Run demo button that autoplays the synthetic moving receiver without a worker, preserves the prior workspace and disables demo autosave. Valid timezone-offset cloud timestamps are normalized to UTC. This update needs no additional migration beyond 004.

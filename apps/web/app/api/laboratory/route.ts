@@ -47,7 +47,10 @@ async function proxy(request: Request) {
     if (error instanceof SyntaxError)
       return NextResponse.json({ detail: 'Invalid JSON' }, { status: 400 });
     return NextResponse.json(
-      { detail: 'Scientific API unavailable. Start npm run dev:api, then retry.' },
+      {
+        detail:
+          'Scientific service is waking up or temporarily unavailable. Wait about a minute, then retry.',
+      },
       { status: 503 },
     );
   }

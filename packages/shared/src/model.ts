@@ -70,7 +70,11 @@ export const projectSchema = z
     id: z.string().uuid(),
     name: z.string().trim().min(1).max(80),
     description: z.string().max(500),
-    updatedAt: z.string().datetime(),
+    // PostgREST serializes timestamptz with offsets and microseconds. Keep one UTC wire format.
+    updatedAt: z
+      .string()
+      .datetime({ offset: true })
+      .transform((value) => new Date(value).toISOString()),
     archived: z.boolean(),
     laboratory: labConfigSchema.optional(),
     cloudVersion: z.number().int().positive().optional(),

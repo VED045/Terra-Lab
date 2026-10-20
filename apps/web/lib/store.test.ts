@@ -51,3 +51,13 @@ describe('Editor transactions', () => {
     expect(useStudio.getState().future).toEqual([]);
   });
 });
+
+it('normalizes a cloud offset timestamp when loading the active editor', () => {
+  const p = { ...createTemplate('square'), updatedAt: '2026-10-20T18:04:56.123456+05:30' };
+  useStudio.getState().load(p);
+  expect(useStudio.getState().project.updatedAt).toBe('2026-10-20T12:34:56.123Z');
+  useStudio.getState().edit((p) => {
+    p.name = 'Cloud project edit';
+  });
+  expect(useStudio.getState().project.name).toBe('Cloud project edit');
+});

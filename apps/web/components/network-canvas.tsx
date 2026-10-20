@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import {
   Crosshair,
   Maximize,
@@ -49,8 +49,10 @@ const tools: { mode: ToolMode; label: string; icon: typeof Radio }[] = [
 ];
 export default function NetworkCanvas({
   verifiedSolution,
+  fitOnLoad = false,
 }: {
   verifiedSolution?: Solution | null;
+  fitOnLoad?: boolean;
 }) {
   const { project, selected, tool, time, playing, edit, select, setTool, add, log } = useStudio();
   const laboratory = useLabView((s) => s.result);
@@ -101,7 +103,7 @@ export default function NetworkCanvas({
     const live = solveProject(project, focus, time);
     return verifiedSolution ? { ...live, solution: verifiedSolution, error: null } : live;
   }, [project, focus, time, verifiedSolution, laboratory]);
-  function fit() {
+  const fit = useCallback(() => {
     const points = project.objects.flatMap((o) =>
       o.kind === 'trajectory'
         ? o.points
@@ -126,7 +128,15 @@ export default function NetworkCanvas({
       p.canvas.zoom = z;
       p.canvas.pan = { x: (-(minX + maxX) / 2) * z, y: 27.5 + ((minY + maxY) / 2) * z };
     });
-  }
+  }, [project.objects, size.width, size.height, edit]);
+  const fittedViewport = useRef('');
+  useEffect(() => {
+    if (!fitOnLoad) return;
+    const key = [project.id, size.width, size.height].join(':');
+    if (fittedViewport.current === key) return;
+    fittedViewport.current = key;
+    fit();
+  }, [fitOnLoad, project.id, size.width, size.height, fit]);
   function zoom(f: number, at = { x: size.width / 2, y: size.height / 2 }) {
     const w = canvasToWorld(at, view);
     const z = Math.min(12, Math.max(0.2, view.zoom * f));

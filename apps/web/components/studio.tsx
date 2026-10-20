@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   QueryClient,
   QueryClientProvider,
@@ -84,7 +86,8 @@ const ScientificChart = dynamic(() => import('./scientific-chart'), {
   ssr: false,
   loading: () => <div className="chart-loading">Loading scientific chart…</div>,
 });
-export default function Studio() {
+type WorkspacePage = 'auto' | 'studio' | 'projects';
+export default function Studio({ workspace = 'auto' }: { workspace?: WorkspacePage }) {
   const [client] = useState(
     () =>
       new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } }),
@@ -92,19 +95,22 @@ export default function Studio() {
   return (
     <QueryClientProvider client={client}>
       <Tooltip.Provider delayDuration={300}>
-        <Workspace />
+        <Workspace workspace={workspace} />
       </Tooltip.Provider>
     </QueryClientProvider>
   );
 }
-function Workspace() {
+function Workspace({ workspace }: { workspace: WorkspacePage }) {
+  const router = useRouter();
+  const [demoMode, setDemoMode] = useState(false);
+  const signedInBefore = useRef(false);
   const s = useStudio();
   const { project, selected, time, playing, dirty, logs, edit, log } = s;
   const speed = project.settings.speedMultiplier;
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(workspace === 'projects');
   const [accountOpen, setAccountOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [laboratoryOpen, setLaboratoryOpen] = useState(false);
@@ -159,8 +165,16 @@ function Workspace() {
       setHydrated(true);
       if (new URLSearchParams(location.hash.slice(1)).has('invite')) setProjectsOpen(true);
       try {
+        const demo =
+          workspace !== 'projects' && new URLSearchParams(location.search).get('demo') === 'moving';
+        setDemoMode(demo);
         const last = localStorage.getItem('terralab.active.v1');
-        if (last) {
+        if (demo) {
+          useStudio.getState().load(createTemplate('moving'));
+          useStudio.getState().select(['rx-1']);
+          useLabView.getState().clear();
+          useStudio.getState().play(true);
+        } else if (last) {
           useStudio.getState().load(deserializeProject(last));
         } else {
           // The static SSR seed has a provisional ID; each browser starts with its own project UUID.
@@ -175,11 +189,22 @@ function Workspace() {
     }
     return observeAuthSession(supabase(), (state) => {
       setAuth(state);
+      if (state.status === 'signed-in') {
+        signedInBefore.current = true;
+        if (workspace === 'auto' && !new URLSearchParams(location.search).has('demo'))
+          router.replace('/projects' + location.hash);
+      } else if (
+        state.status === 'signed-out' &&
+        signedInBefore.current &&
+        workspace === 'projects'
+      ) {
+        router.replace('/studio');
+      }
       void qc.invalidateQueries({ queryKey: ['projects'] });
     });
-  }, [log, qc]);
+  }, [log, qc, router, workspace]);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || demoMode) return;
     try {
       localStorage.setItem('terralab.active.v1', JSON.stringify(project));
     } catch {
@@ -188,7 +213,7 @@ function Workspace() {
     if (!dirty || laboratoryOpen || projectsOpen) return;
     const id = setTimeout(() => void saveCurrent(), 1500);
     return () => clearTimeout(id);
-  }, [project, dirty, hydrated, saveCurrent, laboratoryOpen, projectsOpen]);
+  }, [project, dirty, hydrated, demoMode, saveCurrent, laboratoryOpen, projectsOpen]);
   useEffect(() => {
     if (!notice) return;
     const id = setTimeout(() => setNotice(''), 6000);
@@ -354,6 +379,22 @@ function Workspace() {
   const rmse = errors.length ? Math.hypot(...errors) / Math.sqrt(errors.length) : null;
   const anchors = project.objects.filter((o) => o.kind === 'anchor');
   const obstacles = project.objects.filter((o) => o.kind === 'obstacle');
+  function openProjects() {
+    if (auth.status === 'signed-in' || demoMode) {
+      if (!demoMode)
+        localStorage.setItem('terralab.active.v1', JSON.stringify(useStudio.getState().project));
+      router.push('/projects');
+    } else setProjectsOpen(true);
+  }
+  function openStudio() {
+    localStorage.setItem('terralab.active.v1', JSON.stringify(useStudio.getState().project));
+    router.push('/studio');
+  }
+  function runDemo() {
+    if (!demoMode)
+      localStorage.setItem('terralab.active.v1', JSON.stringify(useStudio.getState().project));
+    window.location.assign('/studio?demo=moving');
+  }
   function exportSamples() {
     const header = 'time_s,truth_x_m,truth_y_m,estimate_x_m,estimate_y_m,error_m\n';
     const data = samples
@@ -366,16 +407,52 @@ function Workspace() {
     a.click();
     URL.revokeObjectURL(url);
   }
+  if (workspace === 'projects')
+    return (
+      <main className={`research-page theme-${project.canvas.theme}`}>
+        <header className="research-page-header">
+          <div>
+            <span className="eyebrow">TERRALAB</span>
+            <h1>Research workspace</h1>
+            <p>Your projects, experiments, teams and shared research.</p>
+          </div>
+          <nav aria-label="Workspace navigation">
+            <Button onClick={openStudio}>
+              <Network size={16} /> Network studio
+            </Button>
+            <Button onClick={() => setAccountOpen(true)}>
+              <UserRound size={16} /> Account
+            </Button>
+          </nav>
+        </header>
+        <ResearchDashboard
+          embedded
+          open
+          auth={auth}
+          onRunDemo={runDemo}
+          onOpenChange={(open) => {
+            if (!open) openStudio();
+          }}
+        />
+        <AccountDialog
+          open={accountOpen}
+          onOpenChange={setAccountOpen}
+          onSession={() => void qc.invalidateQueries({ queryKey: ['projects'] })}
+        />
+      </main>
+    );
+  if (workspace === 'auto' && auth.status === 'checking')
+    return (
+      <main className="workspace-loading" role="status">
+        Opening your workspace…
+      </main>
+    );
   return (
     <main
       className={`studio theme-${project.canvas.theme} ${inspectorOpen ? 'inspector-open' : ''} ${inspectorCollapsed ? 'inspector-collapsed' : ''}`}
     >
       <nav className="navigation-rail" aria-label="Main navigation">
-        <button
-          className="brand-mark"
-          aria-label="TerraLab home"
-          onClick={() => setProjectsOpen(true)}
-        >
+        <button className="brand-mark" aria-label="TerraLab home" onClick={openProjects}>
           <svg viewBox="0 0 30 30">
             <path d="M15 3 27 24H3Z" fill="none" stroke="currentColor" strokeWidth="2" />
             <path d="M15 11 23 24H7Z" fill="currentColor" />
@@ -386,7 +463,7 @@ function Workspace() {
           <Tool label="Network studio" active onClick={() => setProjectsOpen(false)}>
             <Network size={21} />
           </Tool>
-          <Tool label="Project library" onClick={() => setProjectsOpen(true)}>
+          <Tool label="Project library" onClick={openProjects}>
             <FolderOpen size={21} />
           </Tool>
           <Tool
@@ -431,15 +508,22 @@ function Workspace() {
           <small>RESEARCH STUDIO</small>
         </div>
         <div className="topbar-divider" />
-        <button className="project-switcher" onClick={() => setProjectsOpen(true)}>
+        <button className="project-switcher" onClick={openProjects}>
           <FolderOpen size={15} />
           <span>{project.name}</span>
           <ChevronDown size={13} />
         </button>
-        <span className="phase-badge">PHASE 02</span>
+        <span className="phase-badge">{demoMode ? 'LIVE DEMO' : 'RESEARCH'}</span>
+        {demoMode && (
+          <Link className="demo-exit" href="/projects">
+            Exit demo
+          </Link>
+        )}
         <div className="topbar-spacer" />
         <span className="save-state">
-          {save.isPending ? (
+          {demoMode ? (
+            <>Demo · autosave off</>
+          ) : save.isPending ? (
             <>
               <span className="status-dot saving" />
               Saving…
@@ -646,7 +730,7 @@ function Workspace() {
           </div>
         </aside>
         <div className="center-workspace">
-          <NetworkCanvas verifiedSolution={apiResult} />
+          <NetworkCanvas verifiedSolution={apiResult} fitOnLoad={demoMode} />
           <section
             className={`simulation-panel ${bottomOpen ? '' : 'collapsed'}`}
             aria-label="Simulation and log panel"
@@ -933,7 +1017,12 @@ function Workspace() {
           <kbd>?</kbd> Help
         </span>
       </footer>
-      <ResearchDashboard open={projectsOpen} onOpenChange={setProjectsOpen} auth={auth} />
+      <ResearchDashboard
+        open={projectsOpen}
+        onOpenChange={setProjectsOpen}
+        auth={auth}
+        onRunDemo={runDemo}
+      />
       <ShareDialog open={shareOpen} onOpenChange={setShareOpen} />
       <LaboratoryDialog open={laboratoryOpen} onOpenChange={setLaboratoryOpen} />
       <SignalDialog open={signalOpen} onOpenChange={setSignalOpen} />

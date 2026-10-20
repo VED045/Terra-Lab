@@ -71,7 +71,7 @@ def process(job):
         done.set(); thread.join(timeout=2)
 
 def main():
-    if cloud.mode()!='supabase' or not os.environ.get('SUPABASE_SERVICE_ROLE_KEY'): raise SystemExit('Worker requires supabase mode and a server-only service credential')
+    if cloud.mode()!='supabase' or not cloud.service_key(): raise SystemExit('Worker requires supabase mode and a server-only service credential')
     for sig in (signal.SIGINT,signal.SIGTERM): signal.signal(sig,lambda *_:STOP.set())
     while not STOP.is_set():
         try:

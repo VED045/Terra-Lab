@@ -6,4 +6,4 @@ RUN pip install --no-cache-dir -r requirements.txt && useradd --create-home --ui
 COPY services/api /app/services/api
 USER terralab
 EXPOSE 8000
-CMD ["sh","-c","exec uvicorn terralab.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --limit-concurrency 32 --timeout-keep-alive 5"]
+CMD ["python","-m","terralab.runtime"]

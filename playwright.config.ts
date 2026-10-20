@@ -1,9 +1,10 @@
 import { defineConfig } from '@playwright/test';
 // Owned, isolated services: never reuse a developer's browser/server or cloud data.
+const authFixture = process.env.TERRALAB_E2E_AUTH_FIXTURE === '1';
 const webPort = 13041,
   apiPort = 18041;
 export default defineConfig({
-  testDir: './tests/e2e',
+  testDir: authFixture ? './tests/auth-e2e' : './tests/e2e',
   fullyParallel: false,
   workers: 1,
   use: { baseURL: 'http://127.0.0.1:' + webPort, headless: true, trace: 'retain-on-failure' },
@@ -30,8 +31,8 @@ export default defineConfig({
       timeout: 120000,
       env: {
         SIMULATION_API_URL: 'http://127.0.0.1:' + apiPort,
-        NEXT_PUBLIC_SUPABASE_URL: '',
-        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: '',
+        NEXT_PUBLIC_SUPABASE_URL: authFixture ? 'https://fixture.supabase.invalid' : '',
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: authFixture ? 'fixture-public' : '',
         NEXT_PUBLIC_SUPABASE_ANON_KEY: '',
       },
     },

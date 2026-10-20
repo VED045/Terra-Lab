@@ -2,6 +2,7 @@
 import { useMemo } from 'react';
 import {
   worldToCanvas,
+  deserializeProject,
   type Project,
   type Viewport,
   type LabFrame,
@@ -49,9 +50,17 @@ export function LaboratoryOverlay({ project, view }: { project: Project; view: V
   const showTdoa = layers.includes('tdoa');
   const record = result?.records[index];
   const frame = record && result?.frames[record.frameId];
-  const matches = Boolean(
-    result && JSON.stringify(project.objects) === JSON.stringify(result.request.project.objects),
-  );
+  const matches = useMemo(() => {
+    if (!result) return false;
+    try {
+      // Compare both networks through the schema: cloud/legacy property order and
+      // materialized defaults must not make an unchanged snapshot look edited.
+      const snapshot = deserializeProject(JSON.stringify(result.request.project));
+      return JSON.stringify(project.objects) === JSON.stringify(snapshot.objects);
+    } catch {
+      return false;
+    }
+  }, [project.objects, result]);
   const geometry = useMemo(() => {
     if (!result || !record || !frame) return null;
     const anchors = frame.anchors;

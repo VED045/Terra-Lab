@@ -89,6 +89,7 @@ kbd {
   color: var(--muted);
 }
 .studio,
+.research-page,
 .dialog-content,
 .tooltip {
   --bg: #0d141e;
@@ -122,6 +123,7 @@ kbd {
   background: var(--bg);
 }
 .studio.theme-light,
+.research-page.theme-light,
 .dialog-content.theme-light,
 .tooltip.theme-light {
   color-scheme: light;

@@ -46,10 +46,14 @@ export function ResearchDashboard({
   open,
   onOpenChange,
   auth,
+  embedded = false,
+  onRunDemo,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   auth: AuthState;
+  embedded?: boolean;
+  onRunDemo?: () => void;
 }) {
   const qc = useQueryClient(),
     { project, load } = useStudio();
@@ -198,14 +202,22 @@ export function ResearchDashboard({
           mergedRuns.find((r) => r.id === compare[1])?.request,
         )
       : [];
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Research workspace"
-      description="Your networks, immutable experiments, revisions and shared research."
-      wide
-    >
+  const content = (
+    <>
+      {onRunDemo && (
+        <div className="research-demo">
+          <div>
+            <strong>A receiver in motion</strong>
+            <p>
+              Watch a live, synthetic rover simulation with position estimates. Your current
+              workspace is preserved.
+            </p>
+          </div>
+          <Button variant="default" onClick={onRunDemo}>
+            Run demo
+          </Button>
+        </div>
+      )}
       <div className="library-heading">
         <span className="eyebrow">TERRALAB / WORKSPACE</span>
         <span className="local-badge">{cloudStatusText(auth)}</span>
@@ -984,6 +996,19 @@ export function ResearchDashboard({
           </Button>
         </div>
       </section>
+    </>
+  );
+  return embedded ? (
+    <section aria-label="Projects and research">{content}</section>
+  ) : (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Research workspace"
+      description="Your networks, immutable experiments, revisions and shared research."
+      wide
+    >
+      {content}
     </Dialog>
   );
 }

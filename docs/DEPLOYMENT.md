@@ -1,13 +1,13 @@
 # Deployment and environment guide
 
-No Vercel, Render or hosted Supabase deployment/migration has been performed by this implementation. The supplied public Supabase URL/key is insufficient to administer schema or provision services. Production deployment needs the user's explicit authorization and provider access; manual steps below are complete without asking for passwords in chat.
+The user reports Vercel and Render are already deployed and migration 004 is applied. For the requested free setup, follow [Render Free: API + worker in one Web Service](RENDER-FREE.md). The paid two-service option remains below. Repository changes do not apply hosted migrations or change provider settings automatically.
 
 ## 1. Supabase
 
 1. Back up the existing database; test on a staging project/local stack. For this existing Phase 2 project, run `supabase/migrations/202610200002_research_platform.sql`, then `202610200003_export_artifacts.sql`, then `202610200004_acceptance_security.sql` in SQL Editor, after verifying the live ledger and obtaining approval. See `acceptance/DEPLOYMENT_READINESS.md` for the current gate, backup and exact preflight. Do not rerun migration 001. A fresh project applies all four in order, or `supabase db push` with a correctly linked CLI and migration history. If 001 was originally pasted manually, reconcile its history with `supabase migration repair 202610200001 --status applied` **after verifying it matches**, before CLI push.
 2. Verify all research tables have RLS enabled, anonymous grants are absent, and the three buckets are private. See DATABASE.md and run the two-user checklist below. Do not widen policies to fix a client error.
 3. Enable email/password Auth. Set Site URL to the final HTTPS frontend domain. Add exact approved local/preview/production redirect URLs; do not broadly allow arbitrary production domains. Keep hosted email confirmation enabled as desired. Configure production SMTP/rate limits in Supabase for real research peers.
-4. Keep the public publishable key for the frontend/API. Obtain the **legacy service-role JWT** for the Render worker secret. This key has broad database/storage privileges; store it only as a Render worker environment secret. It is not needed by the Vercel frontend or Render API. Do not send it in chat, commit it, or prefix it `NEXT_PUBLIC_`.
+4. Keep the public publishable key for the frontend/API. Create a new **secret API key** (sb_secret_) for SUPABASE_SECRET_KEY in the worker environment, or in the combined service supervisor environment. The supervisor removes it from the public API child. Legacy SUPABASE_SERVICE_ROLE_KEY remains supported; deactivate any exposed legacy key after replacing deployed uses. This credential has broad database/storage privileges and is never needed by the Vercel frontend. Do not send it in chat, commit it, or prefix it `NEXT_PUBLIC_`.
 5. Seed personal starter networks by creating real accounts and saving the built-in templates. `supabase/seed.sql` deliberately creates no credentials or public projects.
 
 ## 2. Render API and worker
@@ -17,8 +17,9 @@ Import the repository Blueprint `render.yaml`. It defines two separately billed 
 Both services build the root Dockerfile. Startup commands:
 
 ```sh
-# API (Docker CMD expands Render's PORT):
-uvicorn terralab.main:app --host 0.0.0.0 --port "$PORT" --workers 1 --limit-concurrency 32 --timeout-keep-alive 5
+# API (default Docker CMD reads PORT; TERRALAB_RUN_WORKER defaults to 0):
+python -m terralab.runtime
+# Free combined service: same CMD with TERRALAB_RUN_WORKER=1 plus SUPABASE_SECRET_KEY
 # Separate background worker (no inbound port or web health path):
 python -m terralab.worker
 ```
@@ -36,7 +37,7 @@ python -m terralab.worker
 | TERRALAB_ENV | production |
 | TERRALAB_JOB_MODE | supabase |
 | SUPABASE_URL | same HTTPS project URL |
-| SUPABASE_SERVICE_ROLE_KEY | legacy service-role JWT, server secret |
+| SUPABASE_SECRET_KEY | new server-only secret API key; legacy SERVICE_ROLE fallback supported |
 
 The image sets `PYTHONPATH`, single-threaded BLAS, a non-root user and unbuffered logs. The worker requires Supabase mode; API startup rejects production/local mode. `/health` is liveness and reports platform/scientific versions and job mode; it does not claim database/worker readiness. Verify readiness by submitting and retrieving an authenticated test job.
 

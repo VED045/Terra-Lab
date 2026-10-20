@@ -74,9 +74,9 @@ export const useStudio = create<State>((set, get) => ({
       };
     }),
   load: (p) => {
-    projectSchema.parse(p);
+    const parsed = projectSchema.parse(p);
     set({
-      project: clone(p),
+      project: clone(parsed),
       selected: [],
       past: [],
       future: [],

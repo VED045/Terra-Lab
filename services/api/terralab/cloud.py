@@ -7,13 +7,19 @@ from fastapi import HTTPException
 
 def mode(): return os.environ.get('TERRALAB_JOB_MODE', 'local')
 
+def service_key():
+    return os.environ.get('SUPABASE_SECRET_KEY') or os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+
 def call(path, token, method='GET', data=None, service=False):
     url = os.environ.get('SUPABASE_URL', '').rstrip('/')
-    key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY' if service else 'SUPABASE_PUBLISHABLE_KEY', '')
+    key = service_key() if service else os.environ.get('SUPABASE_PUBLISHABLE_KEY', '')
     if not url or not key: raise HTTPException(503, 'Cloud job configuration is incomplete')
     if not service and (not token or not token.startswith('Bearer ') or len(token)>8192):
         raise HTTPException(401, 'Sign in to use cloud experiments')
-    headers={'apikey':key,'Content-Type':'application/json','Authorization':f'Bearer {key}' if service else token}
+    headers={'apikey':key,'Content-Type':'application/json'}
+    # Modern Supabase secret keys authenticate via apikey, never as a JWT.
+    if not service: headers['Authorization']=token
+    elif not key.startswith('sb_secret_'): headers['Authorization']=f'Bearer {key}'
     if isinstance(data, bytes): body=data
     else: body=json.dumps(data,allow_nan=False).encode() if data is not None else None
     try:

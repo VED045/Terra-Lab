@@ -8,6 +8,8 @@ import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
+const combined = process.argv.includes('--combined');
+const serviceKey = combined ? 'sb_secret_fixture_only' : 'fixture-service';
 const db = new PGlite({ extensions: { pgcrypto } }),
   owner = '10000000-0000-4000-8000-000000000001',
   stranger = '10000000-0000-4000-8000-000000000004',
@@ -26,7 +28,9 @@ const allowed = new Set([
 const server = createServer(async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    const service = req.headers.apikey === 'fixture-service' && token === 'fixture-service';
+    const service =
+      req.headers.apikey === serviceKey &&
+      (combined ? !req.headers.authorization : token === serviceKey);
     if (
       !service &&
       (![owner, stranger].includes(token) || req.headers.apikey !== 'fixture-public')
@@ -101,7 +105,10 @@ const python = resolve(
     TERRALAB_JOB_MODE: 'supabase',
     SUPABASE_URL: cloudUrl,
     SUPABASE_PUBLISHABLE_KEY: 'fixture-public',
-    SUPABASE_SERVICE_ROLE_KEY: 'fixture-service',
+    SUPABASE_SERVICE_ROLE_KEY: combined ? '' : serviceKey,
+    SUPABASE_SECRET_KEY: combined ? serviceKey : '',
+    TERRALAB_RUN_WORKER: combined ? '1' : '0',
+    PORT: String(port),
     OPENBLAS_NUM_THREADS: '1',
   };
 let api, worker;
@@ -115,13 +122,15 @@ try {
   api = collect(
     spawn(
       python,
-      ['-m', 'uvicorn', 'terralab.main:app', '--host', '127.0.0.1', '--port', String(port)],
-      { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
+      combined
+        ? ['-m', 'terralab.runtime', '--stop-on-stdin']
+        : ['-m', 'uvicorn', 'terralab.main:app', '--host', '127.0.0.1', '--port', String(port)],
+      { env, windowsHide: true, stdio: [combined ? 'pipe' : 'ignore', 'pipe', 'pipe'] },
     ),
   );
   const base = `http://127.0.0.1:${port}`;
   let ready = false;
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 300; i++) {
     if (api.exitCode !== null) throw Error('API stopped: ' + logs);
     try {
       ready = (await fetch(base + '/health')).ok;
@@ -129,7 +138,7 @@ try {
     if (ready) break;
     await new Promise((r) => setTimeout(r, 50));
   }
-  assert(ready, 'API starts');
+  assert(ready, 'API starts: ' + logs);
   const raw = JSON.parse(await readFile('docs/examples/timing-clean.request.json', 'utf8'));
   raw.project.id = randomUUID();
   for (const o of raw.project.objects)
@@ -184,13 +193,14 @@ try {
     404,
     'stranger cannot read job',
   );
-  worker = collect(
-    spawn(python, ['-m', 'terralab.worker'], {
-      env,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }),
-  );
+  if (!combined)
+    worker = collect(
+      spawn(python, ['-m', 'terralab.worker'], {
+        env,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+    );
   let status;
   for (let i = 0; i < 200; i++) {
     status = await (await call('/experiments/' + id)).json();
@@ -213,12 +223,14 @@ try {
   assert(result.records.every((r) => r.errorM !== null && r.errorM < 1e-6));
   assert.equal(result.id, id);
   console.log(
-    'PASS durable HTTP flow: FastAPI → PostgreSQL/RLS/idempotent queue → real worker → immutable Storage envelopes → atomic manifest → exact 18 noiseless epochs; stranger denied. Auth/Storage HTTP are fixtures, not live Supabase validation.',
+    (combined ? 'PASS combined supervisor + modern secret key: ' : '') +
+      'PASS durable HTTP flow: FastAPI → PostgreSQL/RLS/idempotent queue → real worker → immutable Storage envelopes → atomic manifest → exact 18 noiseless epochs; stranger denied. Auth/Storage HTTP are fixtures, not live Supabase validation.',
   );
 } finally {
   for (const p of [worker, api])
     if (p && p.exitCode === null) {
-      p.kill();
+      if (combined && p === api) p.stdin.end();
+      else p.kill();
       await new Promise((r) => p.once('exit', r));
     }
   await new Promise((r) => server.close(r));
