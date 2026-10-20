@@ -48,6 +48,8 @@ class NetworkObstacle(NetworkBase):
     shape: Literal['rectangle','wall','polygon'] = 'rectangle'
     width: Number = Field(default=20,gt=0,le=10000)
     height: Number = Field(default=10,gt=0,le=10000)
+    verticalHeight: Number | None = Field(default=None,gt=0,le=10000)
+    baseElevation: Number | None = Field(default=None,ge=-1e6,le=1e6)
     vertices: list[NetworkPoint] = Field(default_factory=list,max_length=200)
     @model_validator(mode='after')
     def polygon_count(self):
@@ -129,8 +131,11 @@ class Request(Strict):
         objects = self.project.get('objects', [])
         if not isinstance(objects, list) or len(objects) > 100:
             raise ValueError('Laboratory supports at most 100 network objects')
+        if self.project.get('schemaVersion',1) not in (1,2): raise ValueError('Unsupported project schema')
+        if self.project.get('schemaVersion',1)==1 and any(isinstance(o,dict) and ('verticalHeight' in o or 'baseElevation' in o) for o in objects): raise ValueError('Physical dimensions require schema 2')
+        if any(isinstance(o,dict) and any(k in o and o[k] is None for k in ('verticalHeight','baseElevation')) for o in objects): raise ValueError('Physical dimensions must be finite numbers when present')
         validated=network_objects.validate_python(objects)
-        self.project={**self.project,'objects':[{**original,**value.model_dump()} for original,value in zip(objects,validated)]}
+        self.project={**self.project,'objects':[{**original,**value.model_dump(exclude={'verticalHeight','baseElevation'}-set(original))} for original,value in zip(objects,validated)]}
         objects=self.project['objects']
         ids = [o.get('id') for o in objects if isinstance(o, dict)]
         if len(ids) != len(objects) or len(set(ids)) != len(ids):

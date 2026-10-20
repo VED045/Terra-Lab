@@ -44,6 +44,8 @@ export const obstacleSchema = z.object({
   shape: z.enum(['rectangle', 'wall', 'polygon']),
   width: finite.min(0.1).max(10000),
   height: finite.min(0.1).max(10000),
+  verticalHeight: finite.positive().max(10000).optional(),
+  baseElevation: coordinate.optional(),
   vertices: z.array(pointSchema).min(3).max(200),
 });
 export const trajectorySchema = z.object({
@@ -66,7 +68,7 @@ export type Trajectory = z.infer<typeof trajectorySchema>;
 export type NetworkObject = z.infer<typeof objectSchema>;
 export const projectSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.union([z.literal(1), z.literal(2)]),
     id: z.string().uuid(),
     name: z.string().trim().min(1).max(80),
     description: z.string().max(500),
@@ -107,6 +109,16 @@ export const projectSchema = z
   })
   .superRefine((p, ctx) => {
     for (const r of p.objects) {
+      if (
+        r.kind === 'obstacle' &&
+        p.schemaVersion === 1 &&
+        (r.verticalHeight !== undefined || r.baseElevation !== undefined)
+      )
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Physical obstacle dimensions require project schema 2',
+          path: ['objects'],
+        });
       if (
         r.kind === 'receiver' &&
         r.trajectoryId &&

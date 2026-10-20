@@ -20,7 +20,7 @@ The grid is a visual reference with a chosen metre spacing. Its zero is the exis
 |---|---|
 | Anchor | No Z field exists. Display at presentation Z=0; this is not a surveyed elevation. Z translation is disabled. |
 | Receiver | Existing altitude is metadata. Default display is planar; an explicit toggle can show metadata elevation. Z translation updates only altitude, never a positioning state. |
-| Obstacle | Existing width/height are the east–west and north–south footprint dimensions. They are not physical elevation. Optional display extrusion defaults to zero and is explicitly illustrative. |
+| Obstacle | Existing width/height remain east–west width and north–south depth. Phase 5 schema 2 optionally adds per-object verticalHeight and baseElevation in metres. Missing values stay unknown; fallback extrusion is illustrative. Physical height with unknown base is shown relative to presentation ground. These fields do not enter horizontal physics. |
 | Trajectory / polygon vertex | XY only. Display at Z=0; no Z value is inserted into imports or exports. |
 | Stored truth / estimate / observation anchor | Render recorded XY at presentation Z=0; scientific Z is unestimated. A receiver metadata toggle does not move these scientific links or estimates vertically. |
 | Uncertainty | Render only an existing recorded XY ellipse, with its recorded angle in radians. No ellipsoid is generated. |
@@ -34,3 +34,7 @@ Initial-coordinate editing retains existing mobility semantics. The translation 
 Surveyed anchor Z, path-point Z and physical building elevation need an explicitly approved compatible data contract, import/migration rules, UI units and database/API validation. A missing value should remain unknown rather than silently measured as zero.
 
 True 3D estimation additionally needs model-specific equations and enough independent observations for the chosen state, including receiver clock states where appropriate. The 3D Jacobian must be full rank and well conditioned; coplanar geometry, vertical ambiguity and insufficient anchor distribution must produce documented diagnostics. Separate deterministic and noisy benchmarks, covariance/coverage checks and backward-compatibility acceptance would be required. Phase 4B does not change or claim those capabilities.
+
+## Phase 5 format compatibility
+
+Physical obstacle dimensions opt the editable project into schema 2. V1 imports remain v1 with no inserted vertical measurements; new readers accept both formats. Old v1-only clients reject v2 rather than silently stripping new dimensions. Cloud persistence requires migration 005 before saving v2. Archived revisions and experiment snapshots are not upgraded or rewritten. Full XYZ anchor/path states and positioning remain separate scientific work.

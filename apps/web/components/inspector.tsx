@@ -286,8 +286,8 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
                     </label>
                     {o.shape !== 'polygon' ? (
                       <>
-                        {n('Width', 'width', 'm', 0.1, 10000)}
-                        {n('Height', 'height', 'm', 0.1, 10000)}
+                        {n('Width (X)', 'width', 'm', 0.1, 10000)}
+                        {n('Depth (Y)', 'height', 'm', 0.1, 10000)}
                       </>
                     ) : (
                       <PointEditor
@@ -297,8 +297,61 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
                         relative
                       />
                     )}
+                    {(['verticalHeight', 'baseElevation'] as const).map((key) => (
+                      <div key={key}>
+                        {o[key] === undefined ? (
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              edit((p) => {
+                                p.schemaVersion = 2;
+                                const target = p.objects.find((x) => x.id === o.id);
+                                if (target?.kind === 'obstacle')
+                                  target[key] = key === 'verticalHeight' ? 10 : 0;
+                              })
+                            }
+                          >
+                            Set{' '}
+                            {key === 'verticalHeight' ? 'height (Z): 10 m' : 'base elevation: 0 m'}
+                          </Button>
+                        ) : (
+                          <>
+                            <NumberField
+                              label={key === 'verticalHeight' ? 'Height (Z)' : 'Base elevation (Z)'}
+                              value={o[key]!}
+                              unit="m"
+                              min={key === 'verticalHeight' ? 0.01 : -1000000}
+                              max={key === 'verticalHeight' ? 10000 : 1000000}
+                              onChange={(v) => update(o.id, { [key]: v })}
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                edit((p) => {
+                                  const target = p.objects.find((x) => x.id === o.id);
+                                  if (target?.kind === 'obstacle') delete target[key];
+                                })
+                              }
+                            >
+                              Clear {key === 'verticalHeight' ? 'height' : 'base elevation'}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    ))}
                     <p className="field-caption">
-                      Line-of-sight intersection detection. No attenuation or multipath model.
+                      {o.verticalHeight === undefined
+                        ? 'Physical height unknown; 3D may use a labelled illustrative extrusion.'
+                        : 'Physical height entered by the user.'}{' '}
+                      {o.baseElevation === undefined
+                        ? 'Base elevation unknown; shown relative to presentation ground.'
+                        : 'Base elevation entered by the user.'}{' '}
+                      Setting dimensions opts this project into schema 2; old clients cannot open
+                      it.
+                    </p>
+                    <p className="field-caption">
+                      Footprint intersections and positioning remain 2D. Vertical dimensions
+                      describe the scene and do not alter the approved propagation or solver model.
                     </p>
                   </section>
                 )}

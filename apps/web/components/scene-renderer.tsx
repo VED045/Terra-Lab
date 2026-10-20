@@ -252,6 +252,7 @@ function Obstacle({
   return (
     <mesh
       geometry={geometry}
+      position={[0, (object.baseElevation ?? 0) / unit, 0]}
       rotation={[-Math.PI / 2, 0, 0]}
       onClick={(e) => {
         e.stopPropagation();
@@ -504,7 +505,7 @@ function Content({ unit, verifiedSolution }: Pick<Props, 'unit' | 'verifiedSolut
           <Obstacle
             key={o.id}
             object={o as Extract<NetworkObject, { kind: 'obstacle' }>}
-            depth={view.extrusion}
+            depth={o.kind === 'obstacle' ? (o.verticalHeight ?? view.extrusion) : 0}
             selected={selected.includes(o.id)}
           />
         ))}

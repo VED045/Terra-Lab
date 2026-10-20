@@ -93,7 +93,14 @@ export async function saveProject(p: Project): Promise<Project> {
         p_config: saved,
         p_expected: saved.cloudVersion ?? null,
       });
-      if (error) throw Error(error.message);
+      if (error)
+        throw Error(
+          saved.schemaVersion === 2 &&
+            /structure|schema|Invalid project configuration/i.test(error.message)
+            ? error.message +
+                '. Physical dimensions require migration 005 on the server; your draft is preserved. Export JSON before leaving.'
+            : error.message,
+        );
       return deserializeProject(JSON.stringify(data));
     }
   }

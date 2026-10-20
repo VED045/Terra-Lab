@@ -274,7 +274,7 @@ describe('Project serialization and validation', () => {
   });
   it('rejects unknown schema versions', () => {
     const p = createTemplate();
-    expect(() => deserializeProject(JSON.stringify({ ...p, schemaVersion: 2 }))).toThrow();
+    expect(() => deserializeProject(JSON.stringify({ ...p, schemaVersion: 999 }))).toThrow();
   });
   it('rejects invalid parameters and broken trajectory references', () => {
     const p = createTemplate();

@@ -39,3 +39,11 @@ it('returns the server-authoritative owner/version for the editor to accept', as
   expect(saved.cloudVersion).toBe(5);
   expect(saved.cloudOwnerId).toBe(owner);
 });
+
+it('explains missing migration 005 when the v1 server rejects a schema-2 save', async () => {
+  const p = createTemplate();
+  p.schemaVersion = 2;
+  rpc.mockResolvedValue({ data: null, error: { message: 'Invalid project configuration' } });
+  await expect(saveProject(p)).rejects.toThrow('migration 005');
+  expect(p.schemaVersion).toBe(2);
+});

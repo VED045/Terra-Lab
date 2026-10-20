@@ -7,6 +7,7 @@ import { useSceneView, sceneMutationAllowed } from '@/lib/scene-view';
 import { fromScene, recordedScene, toScene, translatedObject } from '@/lib/scene-model';
 import { useLabView } from '@/lib/lab-view';
 import { Button } from './ui/button';
+import { viewPresetSchema, readViewPresets, type ViewPreset } from '@/lib/view-presets';
 const Renderer = dynamic(() => import('./scene-renderer'), {
   ssr: false,
   loading: () => (
@@ -48,6 +49,9 @@ export default function Network3D({ verifiedSolution }: { verifiedSolution?: Sol
   const [attempt, setAttempt] = useState(0),
     [unit, setUnit] = useState(1),
     [stats, setStats] = useState('Preparing scene');
+  const [presetName, setPresetName] = useState('My view'),
+    [savedPresets, setSavedPresets] = useState<ViewPreset[]>([]),
+    [presetMessage, setPresetMessage] = useState('');
   useEffect(() => {
     setStatus(supportedWebGL() ? 'available' : 'unavailable');
   }, [attempt]);
@@ -130,6 +134,73 @@ export default function Network3D({ verifiedSolution }: { verifiedSolution?: Sol
             Reset camera
           </Button>
           <details className="scene-options">
+            <summary>Saved view presets</summary>
+            <div className="scene-options-panel">
+              <p>
+                Browser-local camera preset, projection, units and layers. Scientific settings and
+                2D preferences are unchanged. Free-orbit position is not saved.
+              </p>
+              <input
+                aria-label="View preset name"
+                value={presetName}
+                maxLength={80}
+                onChange={(e) => setPresetName(e.target.value)}
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  try {
+                    const p = viewPresetSchema.parse({
+                      format: 'terralab-view-1',
+                      name: presetName,
+                      unit,
+                      view,
+                    });
+                    const all = readViewPresets(localStorage.getItem('terralab.views.v1'));
+                    const list = [p, ...all.filter((x) => x.name !== p.name)].slice(0, 10);
+                    localStorage.setItem('terralab.views.v1', JSON.stringify(list));
+                    setSavedPresets(list);
+                    setPresetMessage('View saved separately from project data.');
+                  } catch (e) {
+                    setPresetMessage(e instanceof Error ? e.message : String(e));
+                  }
+                }}
+              >
+                Save view preset
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  try {
+                    setSavedPresets(readViewPresets(localStorage.getItem('terralab.views.v1')));
+                    setPresetMessage('');
+                  } catch {
+                    setPresetMessage(
+                      'Saved view preferences are invalid; your project is unaffected.',
+                    );
+                  }
+                }}
+              >
+                Load view presets
+              </Button>
+              {savedPresets.map((p) => (
+                <Button
+                  key={p.name}
+                  size="sm"
+                  onClick={() => {
+                    view.set(p.view);
+                    setUnit(p.unit);
+                    view.camera(p.view.preset);
+                    setPresetMessage('Applied ' + p.name);
+                  }}
+                >
+                  {p.name}
+                </Button>
+              ))}
+              {presetMessage && <p role="status">{presetMessage}</p>}
+            </div>
+          </details>
+          <details className="scene-options">
             <summary>View & layers</summary>
             <div className="scene-options-panel">
               <label>
@@ -157,7 +228,7 @@ export default function Network3D({ verifiedSolution }: { verifiedSolution?: Sol
                 </select>
               </label>
               <label>
-                Illustrative extrusion (m)
+                Legacy illustrative extrusion for obstacles with unknown physical height (m)
                 <select
                   aria-label="Illustrative obstacle extrusion"
                   value={view.extrusion}
@@ -298,8 +369,9 @@ export default function Network3D({ verifiedSolution }: { verifiedSolution?: Sol
         </div>
       </div>
       <p className="scene-contract">
-        3D view · horizontal positioning only · scientific Z is unestimated.{' '}
-        {view.extrusion > 0 ? 'Building extrusion is illustrative, not surveyed. ' : ''}
+        3D view · horizontal positioning only · scientific Z is unestimated. Physical obstacle
+        dimensions are user supplied scene metadata. Unknown heights use only the optional
+        illustrative fallback.
         {view.elevation ? 'Receiver height is metadata; scientific links stay on XY. ' : ''}
         {readonly
           ? 'Read-only cloud project (or access is still being checked).'
@@ -353,7 +425,14 @@ export default function Network3D({ verifiedSolution }: { verifiedSolution?: Sol
           Selected: {chosen.name} · X {chosen.x.toFixed(2)} m · Y {chosen.y.toFixed(2)} m ·{' '}
           {chosen.kind === 'receiver'
             ? 'Altitude metadata ' + chosen.altitude + ' m'
-            : 'Z unavailable; presentation plane 0 m'}
+            : chosen.kind === 'obstacle'
+              ? 'Physical height ' +
+                (chosen.verticalHeight === undefined ? 'unknown' : chosen.verticalHeight + ' m') +
+                '; base elevation ' +
+                (chosen.baseElevation === undefined
+                  ? 'unknown (presentation ground)'
+                  : chosen.baseElevation + ' m')
+              : 'Z unavailable; presentation plane 0 m'}
           .{' '}
           {chosen.kind === 'receiver' && chosen.mobility === 'waypoints'
             ? 'Waypoint motion follows the path; translate the path to move its route.'

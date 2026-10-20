@@ -48,7 +48,13 @@ export function translatedObject(
 }
 export function sceneBounds(project: Project, elevation = false, time = 0, extra: XYZ[] = []) {
   const points = project.objects.flatMap((o): XYZ[] => {
-    if (o.kind === 'obstacle') return obstacleVertices(o).map((p) => ({ ...p, z: 0 }));
+    if (o.kind === 'obstacle') {
+      const base = o.baseElevation ?? 0;
+      return obstacleVertices(o).flatMap((p) => [
+        { ...p, z: base },
+        { ...p, z: base + (o.verticalHeight ?? 0) },
+      ]);
+    }
     if (o.kind === 'trajectory') return o.points.map((p) => ({ ...p, z: 0 }));
     return [objectPosition(o, project, time, elevation)];
   });
