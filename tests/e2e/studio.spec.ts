@@ -14,6 +14,17 @@ test('renders a working solver and measurement table without browser errors', as
   await page.getByRole('button', { name: 'Measurements', exact: true }).click();
   await expect(page.getByRole('table')).toContainText('TX-01');
   await expect(page.getByRole('table').getByRole('row')).toHaveCount(7);
+  await page
+    .locator('.simulation-tabs')
+    .getByRole('button', { name: 'Simulation', exact: true })
+    .click();
+  await expect(page.locator('.js-plotly-plot')).toBeVisible();
+  await page.getByRole('button', { name: 'Play simulation', exact: true }).click();
+  await page.getByRole('button', { name: 'Collapse simulation panel', exact: true }).click();
+  await page.getByRole('button', { name: 'Expand simulation panel', exact: true }).click();
+  await expect(page.locator('.js-plotly-plot')).toBeVisible();
+  await expect(page.getByTestId('simulation-time')).not.toContainText('00:00.0 /');
+  await page.getByRole('button', { name: 'Pause simulation', exact: true }).click();
   expect(errors).toEqual([]);
 });
 test('adds an object, edits coordinates, undoes, redoes, saves and reloads', async ({ page }) => {

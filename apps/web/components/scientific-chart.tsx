@@ -55,9 +55,16 @@ export default function ScientificChart({ samples, light }: { samples: Sample[];
             showlegend: false,
             autosize: true,
           },
-          { displayModeBar: false, responsive: true },
-        );
-        observer = new ResizeObserver(() => P.Plots.resize(node));
+          { displayModeBar: false, responsive: false },
+        ).catch(() => {
+          if (alive && node.isConnected)
+            node.textContent = 'Chart unavailable. Measurements remain available in the table.';
+        });
+        observer = new ResizeObserver(() => {
+          if (!alive || !node.isConnected || !node.clientWidth || !node.clientHeight) return;
+          // Plotly resolves resize asynchronously; the panel can disappear before it completes.
+          void Promise.resolve(P.Plots.resize(node)).catch(() => {});
+        });
         observer.observe(node);
       })
       .catch(() => {
@@ -67,9 +74,16 @@ export default function ScientificChart({ samples, light }: { samples: Sample[];
     return () => {
       alive = false;
       observer?.disconnect();
-      import('plotly.js-basic-dist-min').then(({ default: P }) => P.purge(node)).catch(() => {});
     };
   }, [samples, light]);
+  // Keep the plot between data updates; purging in the data effect races the next react() call.
+  useEffect(() => {
+    const node = ref.current;
+    return () => {
+      if (node)
+        import('plotly.js-basic-dist-min').then(({ default: P }) => P.purge(node)).catch(() => {});
+    };
+  }, []);
   return (
     <div
       className="scientific-chart"

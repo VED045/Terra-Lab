@@ -44,6 +44,7 @@ Git origin: `https://github.com/VED045/Terra-Lab.git`. GitHub push is deferred.
 - A test initially selected the simulation tab in the bottom panel instead of the inspector. The selector now identifies the inspector explicitly.
 - The estimate overlay intercepted receiver pointer events. Estimate/measurement overlays no longer intercept node selection or dragging.
 - Autosave initially reset its timer on simulation renders. The mutation callback is stable, and autosave during playback is covered by an E2E test.
+- Final server-log inspection found a Plotly resize rejection during panel changes. Resize now checks visibility and handles a panel disappearing mid-resize; plots are purged only on unmount. Playback/panel toggling is included in the browser error check.
 - Reviewed and corrected the Supabase auth subscription lifecycle under React Strict Mode. This was code review, not a live cloud test.
 - Made test screenshot output paths portable and gave each fresh browser project its own UUID to avoid collisions in a shared cloud table.
 
