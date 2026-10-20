@@ -1,0 +1,6 @@
+node_modules
+.next
+.venv
+package-lock.json
+test-results
+playwright-report

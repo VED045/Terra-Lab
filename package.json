@@ -1,0 +1,31 @@
+{
+  "name": "terralab",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n web,api \"npm run dev:web\" \"npm run dev:api\"",
+    "dev:web": "npm run dev -w @terralab/web",
+    "dev:api": "node scripts/python.mjs -m uvicorn terralab.main:app --app-dir services/api --reload --port 8000",
+    "build": "npm run build -w @terralab/web",
+    "start": "npm run start -w @terralab/web",
+    "typecheck": "npm run typecheck -w @terralab/web",
+    "test": "vitest run",
+    "test:python": "node scripts/python.mjs -m pytest services/api/tests -q",
+    "format": "prettier --write apps/web/app apps/web/components apps/web/lib packages/shared/src tests/e2e scripts",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "concurrently": "^9.2.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=20.9"
+  }
+}
