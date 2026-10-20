@@ -1,5 +1,7 @@
 # TerraLab Phase 1 delivery report
 
+> Initial delivery record. Later save/settings, Supabase configuration, profile and sharing updates are documented in `SAVE_SETTINGS_FOLLOWUP.md` and `PROFILE_SHARING.md`; those records supersede the original setup and publication status below.
+
 20 October 2026 · Ready for review
 
 TerraLab is implemented in **`C:\Users\Ved\Desktop\TerraLab`**. It runs locally and provides a functioning scientific network editor, deterministic mobility and validated calibrated-range multilateration. Supabase account/database/storage integration is present but awaits credentials and live acceptance. Phase 2 has not started. No GitHub push has been performed.

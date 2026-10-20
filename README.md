@@ -65,7 +65,7 @@ Strict TypeScript, React 19.3.1, Next.js 16.4.2, Tailwind 4, Lucide, Zustand, Ta
 
 ## Optional Supabase setup
 
-Cloud registration/login, personal projects, archive/delete and Storage snapshots are implemented. Credentials were not provided, so authenticated cloud behavior and SQL/RLS execution have not been tested against a live Supabase instance.
+Cloud registration/login, personal projects, archive/delete and Storage snapshots are implemented. Public configuration is now present locally, and Auth/table presence were checked. Authenticated cloud CRUD, profile updates and two-user RLS/Storage isolation have not been independently tested against the live user session.
 
 1. Create a Supabase project, or install Docker and Supabase CLI and run `supabase start` from this repository for a free local stack. The repository includes local API/Auth/DB settings in `supabase/config.toml`.
 2. For a hosted project, paste `supabase/migrations/202610200001_projects.sql` into its SQL editor. For local development, run `supabase db reset` after starting the stack. The migration creates `public.projects`, per-user row policies and the private `project-exports` bucket.
@@ -108,4 +108,8 @@ Read `docs/research/methodology-matrix.md` for equations, assumptions, paper-by-
 
 ## Repository
 
-Target origin: `https://github.com/VED045/Terra-Lab.git`. Work is prepared locally. No GitHub push or deployment has been performed; pushing is reserved for the user's later request.
+Target origin: `https://github.com/VED045/Terra-Lab.git`. Source and documentation belong in this repository; local environment values and generated personal exports stay out of Git. See docs/PROFILE_SHARING.md for the profile and export follow-up.
+
+## Profile and sharing
+
+Click your avatar to view and edit your signed-in researcher profile. Share / export in the command bar provides PNG network screenshots, importable setup JSON, CSV simulation samples and printable HTML reports. File sharing uses the device share sheet when supported; downloads work without making cloud projects public. See docs/PROFILE_SHARING.md for usage, verification limits and acceptance steps.

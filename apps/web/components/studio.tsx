@@ -34,6 +34,7 @@ import {
   SkipForward,
   RotateCcw,
   Download,
+  Share2,
   Plus,
   PanelBottomClose,
   PanelBottomOpen,
@@ -54,6 +55,7 @@ import {
   deserializeProject,
   solveProject,
   distance,
+  simulationSamples,
   type Receiver,
   type Solution,
 } from '@terralab/shared';
@@ -62,11 +64,11 @@ import { saveProject, supabase } from '@/lib/persistence';
 import NetworkCanvas from './network-canvas';
 import Inspector from './inspector';
 import { SettingsDialog } from './settings-dialog';
-import { ProjectsDialog, AccountDialog, downloadProject } from './project-dialogs';
+import { ProjectsDialog, AccountDialog } from './project-dialogs';
+import { ShareDialog } from './share-dialog';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 import { Tool } from './ui/tool';
-import type { Sample } from './scientific-chart';
 const ScientificChart = dynamic(() => import('./scientific-chart'), {
   ssr: false,
   loading: () => <div className="chart-loading">Loading scientific chart…</div>,
@@ -93,6 +95,7 @@ function Workspace() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [bottomOpen, setBottomOpen] = useState(true);
   const [bottomTab, setBottomTab] = useState<'overview' | 'measurements' | 'logs'>('overview');
@@ -217,6 +220,7 @@ function Workspace() {
         (e.target as HTMLElement).matches('input,textarea,select,[contenteditable]') ||
         projectsOpen ||
         accountOpen ||
+        shareOpen ||
         settingsOpen ||
         helpOpen
       )
@@ -270,7 +274,7 @@ function Workspace() {
     };
     window.addEventListener('keydown', fn);
     return () => window.removeEventListener('keydown', fn);
-  }, [projectsOpen, accountOpen, settingsOpen, helpOpen, saveCurrent]);
+  }, [projectsOpen, accountOpen, shareOpen, settingsOpen, helpOpen, saveCurrent]);
   const receivers = project.objects.filter(
     (o): o is Receiver => o.kind === 'receiver' && o.enabled,
   );
@@ -283,24 +287,7 @@ function Workspace() {
   const runSnapshot = useRef<{ project: typeof project; time: number } | null>(null);
   // Recompute from deterministic timestamps; scrubbing yields exactly the same samples.
   const samples = useMemo(() => {
-    if (!receiver) return [];
-    const step = Math.max(project.settings.step, 0.5);
-    const count = Math.floor(time / step + 1e-8);
-    const start = Math.max(0, count - 399);
-    const data: Sample[] = [];
-    for (let i = start; i <= count; i++) {
-      const t = Number((i * step).toFixed(6));
-      const r = solveProject(project, receiver, t);
-      data.push({
-        time: t,
-        x: r.truth.x,
-        y: r.truth.y,
-        estimateX: r.solution?.position.x ?? null,
-        estimateY: r.solution?.position.y ?? null,
-        error: r.solution ? distance(r.truth, r.solution.position) : null,
-      });
-    }
-    return data;
+    return receiver ? simulationSamples(project, receiver, time) : [];
   }, [project, receiver, time]);
   const run = useMutation({
     mutationFn: async () => {
@@ -408,7 +395,10 @@ function Workspace() {
           <Tool label="Keyboard shortcuts" onClick={() => setHelpOpen(true)}>
             <HelpCircle size={20} />
           </Tool>
-          <Tool label={email ?? 'Account & cloud sync'} onClick={() => setAccountOpen(true)}>
+          <Tool
+            label={email ? `Profile · ${email}` : 'Account & cloud sync'}
+            onClick={() => setAccountOpen(true)}
+          >
             <UserRound size={20} />
           </Tool>
         </div>
@@ -448,7 +438,12 @@ function Workspace() {
           <Save size={14} />
           Save project
         </Button>
-        <button className="avatar" aria-label="Open account" onClick={() => setAccountOpen(true)}>
+        <button
+          className="avatar"
+          aria-label={email ? 'Open profile' : 'Open account'}
+          title={email ?? 'Your account'}
+          onClick={() => setAccountOpen(true)}
+        >
           {email?.[0]?.toUpperCase() ?? 'VL'}
         </button>
       </header>
@@ -486,9 +481,9 @@ function Workspace() {
             <PanelRight size={16} />
           </Tool>
           <span className="vertical-rule" />
-          <Button size="sm" onClick={() => downloadProject(project)}>
-            <Download size={14} />
-            <span className="hide-small">Export</span>
+          <Button size="sm" aria-label="Share and export" onClick={() => setShareOpen(true)}>
+            <Share2 size={14} />
+            <span className="hide-small">Share / export</span>
           </Button>
           <Button size="sm" variant="default" onClick={() => run.mutate()} disabled={run.isPending}>
             <Play size={13} fill="currentColor" />
@@ -849,6 +844,7 @@ function Workspace() {
         </span>
       </footer>
       <ProjectsDialog open={projectsOpen} onOpenChange={setProjectsOpen} />
+      <ShareDialog open={shareOpen} onOpenChange={setShareOpen} />
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}

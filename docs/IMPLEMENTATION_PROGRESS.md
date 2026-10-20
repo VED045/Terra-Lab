@@ -1,10 +1,10 @@
 # Phase 1 implementation progress
 
-Status: **implemented and locally verified; ready for user review**. Authenticated Supabase acceptance remains pending credentials and a real instance. Phase 2 has not begun.
+Status: **Phase 1 implemented with profile and sharing follow-ups**. Current checks: 77 frontend/shared tests, 20 Python tests, strict TypeScript and production build pass. Public Supabase configuration is present and the project table exists; live authenticated UI/CRUD acceptance remains pending access to the user session. Phase 2 has not begun. See PROFILE_SHARING.md for current features and verification limits.
 
 Delivery directory: `C:\Users\Ved\Desktop\TerraLab`.
 Date: 20 October 2026.
-Git origin: `https://github.com/VED045/Terra-Lab.git`. GitHub push is deferred.
+Git origin: `https://github.com/VED045/Terra-Lab.git`. The user has authorized pushing Phase 1 to this remote.
 
 ## Completed
 
@@ -50,15 +50,19 @@ Git origin: `https://github.com/VED045/Terra-Lab.git`. GitHub push is deferred.
 
 ## Known limits and remaining setup
 
-1. Supabase is integrated but unverified live. Add the public URL/anon key, apply the migration, configure Auth, then verify two-user RLS and Storage isolation using the README checklist. Do not treat the local test results as cloud acceptance.
+1. Supabase public URL/key are configured, Auth responds successfully and the project table now exists with anonymous access denied. Authenticated profile updates, two-user RLS, cloud CRUD and Storage isolation still require live acceptance using the README checklist. Do not treat local/mock tests as authenticated cloud acceptance.
 2. RF/timing/clock/altitude fields are persisted metadata in Phase 1. They do not inject propagation or clock errors into calibrated horizontal ranges. Unknown clock bias is not solved.
 3. Obstructions flag exact 2D geometric intersections. With exclusion off they do not change the synthetic range; with exclusion on those observations are removed. No advanced propagation is implemented.
 4. Constant-velocity and linear modes both follow the configured speed and heading. User-defined paths use the trajectory's speed. Random waypoint evaluation is seed reproducible.
 5. Charts/CSV retain a bounded deterministic sample window, not an unlimited result database. Playback always uses browser QR for responsiveness; explicit Python runs use SVD. Failed fixes remain missing observations, not zero error.
 6. Local persistence is browser/origin specific. Use JSON exports for portable backups; account sync requires configuration. No collaboration or automatic local-to-cloud migration is included.
 7. Tests were executed on Windows with Chromium, Node 24.19.0 and Python 3.12. Other browsers/platforms were not tested. A nonblocking upstream Starlette warning recommends a future `httpx2` test-client migration; all Python tests pass with pinned `httpx`.
-8. No public deployment or GitHub push has been performed. The local repository is ready for later review/push.
+8. No public deployment has been performed. GitHub source publication is authorized; the push result is recorded in the user handoff.
 
 ## Review gate
 
 Phase 1 local acceptance is complete. Cloud acceptance remains an explicit setup task. Stop here and wait for user review. Do not implement Phase 2 until the user explicitly approves it. Proposed next-phase steps are in `PHASE_1_REPORT.md`.
+
+## Profile and export follow-up
+
+Signed-in profile cards, display-name editing, network PNG screenshots, importable setup JSON, timestamped CSV samples and printable HTML reports are implemented. The original browser results below are historical; later UI changes were not re-tested in the blocked in-app tab. See PROFILE_SHARING.md for the exact current verification and manual acceptance checklist.
