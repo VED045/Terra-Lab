@@ -54,6 +54,11 @@ export function captureNetworkSvg(): string {
   return new XMLSerializer().serializeToString(clone);
 }
 export async function networkPng(svg: string, project: Project, time: number): Promise<Blob> {
+  const workspace = document.querySelector('.studio');
+  const style = workspace ? getComputedStyle(workspace) : null;
+  const background = style?.getPropertyValue('--canvas').trim() || '#0c1621';
+  const foreground = style?.getPropertyValue('--text').trim() || '#dbe4ed';
+  const muted = style?.getPropertyValue('--muted').trim() || '#78889b';
   const size = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement;
   const width = Number(size.getAttribute('width')),
     height = Number(size.getAttribute('height'));
@@ -73,13 +78,13 @@ export async function networkPng(svg: string, project: Project, time: number): P
       image.src = url;
     });
     context.scale(scale, scale);
-    context.fillStyle = '#0c1621';
+    context.fillStyle = background;
     context.fillRect(0, 0, width, height + 70);
     context.drawImage(image, 0, 70, width, height);
-    context.fillStyle = '#dbe4ed';
+    context.fillStyle = foreground;
     context.font = '18px Arial';
     context.fillText(project.name, 20, 29, width - 40);
-    context.fillStyle = '#77a6b7';
+    context.fillStyle = muted;
     context.font = '11px Arial';
     context.fillText(
       `TERRALAB · ${time.toFixed(1)} s · calibrated 2D ranges · seed ${project.settings.seed}`,

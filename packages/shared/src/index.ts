@@ -1,4 +1,5 @@
 export * from './model';
+export * from './themes';
 export * from './geometry';
 export * from './mobility';
 export * from './solver';

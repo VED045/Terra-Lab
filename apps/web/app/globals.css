@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@custom-variant dark (&:is(.theme-dark *));
+@custom-variant dark (&:is(.theme-dark *, .theme-mono-dark *, .theme-midnight *, .theme-forest *, .theme-amber *, .theme-violet *));
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--text);
@@ -101,6 +101,8 @@ kbd {
   --text: #dbe4ed;
   --muted: #78889b;
   --faint: #4f6379;
+  --primary-foreground: #08272b;
+  --primary-hover: #74dddf;
   --cyan: #48c8cc;
   --cyan-dim: #183940;
   --blue: #5b91ea;
@@ -133,6 +135,8 @@ kbd {
   --text: #203246;
   --muted: #6c7d90;
   --faint: #9aabba;
+  --primary-foreground: #ffffff;
+  --primary-hover: #107780;
   --cyan: #148a92;
   --cyan-dim: #e1f1f2;
   --blue: #386dbd;
@@ -148,6 +152,247 @@ kbd {
   --selection: #148a9215;
   --danger: #b7475a;
   --shadow: 0 12px 40px #34445418;
+}
+/* Additional palettes use one accent hue with tonal surfaces. */
+:is(.studio, .dialog-content, .tooltip).theme-mono-dark {
+  color-scheme: dark;
+  --bg: #101010;
+  --panel: #161616;
+  --panel-alt: #1b1b1b;
+  --canvas: #101010;
+  --rail: #141414;
+  --border: #393939;
+  --border-soft: #282828;
+  --text: #e2e2e2;
+  --muted: #a9a9a9;
+  --faint: #888888;
+  --cyan: #eeeeee;
+  --cyan-dim: #2d2d2d;
+  --blue: #eeeeee;
+  --green: #eaeaea;
+  --purple: #e8e8e8;
+  --amber: #e6e6e6;
+  --grid: #212121;
+  --grid-major: #313131;
+  --obstacle: #232323;
+  --obstacle-line: #707070;
+  --node-fill: #242424;
+  --receiver-fill: #313131;
+  --selection: #eeeeee18;
+  --danger: #e7e7e7;
+  --primary-foreground: #101010;
+  --primary-hover: #f0f0f0;
+  --shadow: 0 12px 40px #00000066;
+}
+:is(.studio, .dialog-content, .tooltip).theme-mono-light {
+  color-scheme: light;
+  --bg: #fafafa;
+  --panel: #f6f6f6;
+  --panel-alt: #f0f0f0;
+  --canvas: #fafafa;
+  --rail: #ececec;
+  --border: #c8c8c8;
+  --border-soft: #e1e1e1;
+  --text: #1e1e1e;
+  --muted: #5a5a5a;
+  --faint: #7d7d7d;
+  --cyan: #242424;
+  --cyan-dim: #dedede;
+  --blue: #242424;
+  --green: #222222;
+  --purple: #212121;
+  --amber: #202020;
+  --grid: #e8e8e8;
+  --grid-major: #d7d7d7;
+  --obstacle: #e6e6e6;
+  --obstacle-line: #969696;
+  --node-fill: #e7e7e7;
+  --receiver-fill: #dadada;
+  --selection: #24242418;
+  --danger: #202020;
+  --primary-foreground: #ffffff;
+  --primary-hover: #202020;
+  --shadow: 0 12px 40px #00000028;
+}
+:is(.studio, .dialog-content, .tooltip).theme-midnight {
+  color-scheme: dark;
+  --bg: #0c1424;
+  --panel: #121a29;
+  --panel-alt: #171f2e;
+  --canvas: #0c1424;
+  --rail: #101827;
+  --border: #353c49;
+  --border-soft: #242c3a;
+  --text: #e2e3e5;
+  --muted: #a8aab0;
+  --faint: #868a92;
+  --cyan: #8cb4ff;
+  --cyan-dim: #1d2940;
+  --blue: #8cb4ff;
+  --green: #a6c2f7;
+  --purple: #b7ccf2;
+  --amber: #c8d5ed;
+  --grid: #1d2433;
+  --grid-major: #2e3543;
+  --obstacle: #1f2736;
+  --obstacle-line: #6d727c;
+  --node-fill: #182238;
+  --receiver-fill: #1f2c45;
+  --selection: #8cb4ff18;
+  --danger: #c0d0ef;
+  --primary-foreground: #0c1424;
+  --primary-hover: #9abdff;
+  --shadow: 0 12px 40px #00000066;
+}
+:is(.studio, .dialog-content, .tooltip).theme-forest {
+  color-scheme: dark;
+  --bg: #0f1b16;
+  --panel: #15211c;
+  --panel-alt: #1a2520;
+  --canvas: #0f1b16;
+  --rail: #131e19;
+  --border: #38423e;
+  --border-soft: #27322d;
+  --text: #e2e4e3;
+  --muted: #a9adab;
+  --faint: #878d8a;
+  --cyan: #8dd6ae;
+  --cyan-dim: #1f332a;
+  --blue: #8dd6ae;
+  --green: #a6dabe;
+  --purple: #b8ddc8;
+  --amber: #c8e0d3;
+  --grid: #202b26;
+  --grid-major: #313b37;
+  --obstacle: #222d29;
+  --obstacle-line: #6f7673;
+  --node-fill: #1a2c24;
+  --receiver-fill: #22372d;
+  --selection: #8dd6ae18;
+  --danger: #c0dece;
+  --primary-foreground: #0f1b16;
+  --primary-hover: #9bdbb8;
+  --shadow: 0 12px 40px #00000066;
+}
+:is(.studio, .dialog-content, .tooltip).theme-amber {
+  color-scheme: dark;
+  --bg: #1c1710;
+  --panel: #221d16;
+  --panel-alt: #26211b;
+  --canvas: #1c1710;
+  --rail: #1f1a14;
+  --border: #433e39;
+  --border-soft: #332e28;
+  --text: #e4e3e2;
+  --muted: #adaba9;
+  --faint: #8e8b88;
+  --cyan: #e9bd70;
+  --cyan-dim: #372d1c;
+  --blue: #e9bd70;
+  --green: #e8c892;
+  --purple: #e6d0a9;
+  --amber: #e6d8c0;
+  --grid: #2c2721;
+  --grid-major: #3c3731;
+  --obstacle: #2e2a23;
+  --obstacle-line: #777470;
+  --node-fill: #2e2619;
+  --receiver-fill: #3b301e;
+  --selection: #e9bd7018;
+  --danger: #e6d4b4;
+  --primary-foreground: #1c1710;
+  --primary-hover: #ecc581;
+  --shadow: 0 12px 40px #00000066;
+}
+:is(.studio, .dialog-content, .tooltip).theme-violet {
+  color-scheme: dark;
+  --bg: #1a1524;
+  --panel: #201b29;
+  --panel-alt: #24202e;
+  --canvas: #1a1524;
+  --rail: #1d1927;
+  --border: #413d49;
+  --border-soft: #312c3a;
+  --text: #e4e3e5;
+  --muted: #adabb0;
+  --faint: #8c8a92;
+  --cyan: #c3a4ef;
+  --cyan-dim: #30283e;
+  --blue: #c3a4ef;
+  --green: #cdb7ec;
+  --purple: #d4c4ea;
+  --amber: #dad0e8;
+  --grid: #2a2533;
+  --grid-major: #3a3643;
+  --obstacle: #2c2836;
+  --obstacle-line: #76737c;
+  --node-fill: #292236;
+  --receiver-fill: #332a42;
+  --selection: #c3a4ef18;
+  --danger: #d7cae9;
+  --primary-foreground: #1a1524;
+  --primary-hover: #caaff1;
+  --shadow: 0 12px 40px #00000066;
+}
+:is(.studio, .dialog-content, .tooltip).theme-rose {
+  color-scheme: light;
+  --bg: #faf3f4;
+  --panel: #f6eff0;
+  --panel-alt: #f0e9ea;
+  --canvas: #faf3f4;
+  --rail: #ece6e7;
+  --border: #c8c2c3;
+  --border-soft: #e1dbdc;
+  --text: #1e1d1d;
+  --muted: #5a5758;
+  --faint: #7d7a7a;
+  --cyan: #9c4162;
+  --cyan-dim: #eedce1;
+  --blue: #9c4162;
+  --green: #76364d;
+  --purple: #5d2f40;
+  --amber: #442832;
+  --grid: #e8e2e3;
+  --grid-major: #d7d1d2;
+  --obstacle: #e6e0e0;
+  --obstacle-line: #969292;
+  --node-fill: #f2e3e7;
+  --receiver-fill: #ecd8de;
+  --selection: #9c416218;
+  --danger: #502b39;
+  --primary-foreground: #ffffff;
+  --primary-hover: #893956;
+  --shadow: 0 12px 40px #00000028;
+}
+:is(.studio, .dialog-content, .tooltip).theme-sand {
+  color-scheme: light;
+  --bg: #faf6ed;
+  --panel: #f6f2e9;
+  --panel-alt: #f0ece4;
+  --canvas: #faf6ed;
+  --rail: #ece8e0;
+  --border: #c8c5be;
+  --border-soft: #e1ddd5;
+  --text: #1e1e1c;
+  --muted: #5a5955;
+  --faint: #7d7b76;
+  --cyan: #876323;
+  --cyan-dim: #ebe3d3;
+  --blue: #876323;
+  --green: #684e21;
+  --purple: #524020;
+  --amber: #3e331e;
+  --grid: #e8e5dc;
+  --grid-major: #d7d4cc;
+  --obstacle: #e6e2da;
+  --obstacle-line: #96948e;
+  --node-fill: #f0e9db;
+  --receiver-fill: #e9e0cf;
+  --selection: #87632318;
+  --danger: #483a1f;
+  --primary-foreground: #ffffff;
+  --primary-hover: #77571f;
+  --shadow: 0 12px 40px #00000028;
 }
 .studio {
   height: 100dvh;
@@ -374,13 +619,13 @@ kbd {
 }
 .button-primary {
   background: var(--cyan);
-  color: #08272b;
+  color: var(--primary-foreground);
   border-color: var(--cyan);
   font-weight: 600;
 }
 .button-primary:hover {
-  background: #74dddf;
-  color: #08272b;
+  background: var(--primary-hover);
+  color: var(--primary-foreground);
 }
 .button-outline {
   border-color: var(--border);
@@ -1539,7 +1784,7 @@ kbd {
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: #030913b8;
+  background: #000000b8;
   backdrop-filter: blur(5px);
   z-index: 30;
 }
@@ -1593,6 +1838,7 @@ kbd {
 .local-badge {
   font-size: 9px;
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 .template-grid {
   display: grid;
@@ -2755,4 +3001,48 @@ code {
   .command-actions > .button[aria-label='Share and export'] > svg {
     width: 13px;
   }
+}
+
+.theme-swatches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+.theme-swatch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 11px;
+}
+.theme-swatch:hover {
+  background: var(--panel-alt);
+}
+.theme-swatch[aria-pressed='true'] {
+  border-color: var(--cyan);
+  background: var(--cyan-dim);
+}
+.theme-preview {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 40px;
+  height: 27px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.theme-preview span {
+  width: 5px;
+  height: 5px;
+  border: 1px solid currentColor;
+}
+.theme-preview span:nth-child(2) {
+  border-radius: 50%;
+  background: currentColor;
 }

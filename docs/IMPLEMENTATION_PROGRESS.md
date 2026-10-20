@@ -1,6 +1,6 @@
 # Phase 1 implementation progress
 
-Status: **Phase 1 implemented with profile and sharing follow-ups**. Current checks: 77 frontend/shared tests, 20 Python tests, strict TypeScript and production build pass. Public Supabase configuration is present and the project table exists; live authenticated UI/CRUD acceptance remains pending access to the user session. Phase 2 has not begun. See PROFILE_SHARING.md for current features and verification limits.
+Status: **Phase 1 implemented with profile, sharing, session-status and theme follow-ups**. Current frontend/shared checks: 106 unit tests, strict TypeScript and production build pass. The earlier 20 Python tests passed; backend code is unchanged in this follow-up. Public Supabase configuration is present and the project table exists; live authenticated UI/CRUD acceptance remains pending access to the user session. Phase 2 has not begun. See PROFILE_SHARING.md and THEMES_AND_SESSION.md for current features and verification limits.
 
 Delivery directory: `C:\Users\Ved\Desktop\TerraLab`.
 Date: 20 October 2026.

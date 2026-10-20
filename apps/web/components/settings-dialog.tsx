@@ -1,21 +1,23 @@
 'use client';
 import { useStudio } from '@/lib/store';
-import { supabase } from '@/lib/persistence';
+import { workspaceThemes, type WorkspaceTheme } from '@terralab/shared';
+import { cloudStatusText, type AuthState } from '@/lib/auth-session';
 import { SimulationSettings } from './simulation-settings';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 
 export function SettingsDialog({
+  auth,
   open,
   onOpenChange,
   onAccount,
 }: {
+  auth: AuthState;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAccount: () => void;
 }) {
   const { project, edit } = useStudio();
-  const connected = Boolean(supabase());
   const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   return (
     <Dialog
@@ -38,14 +40,47 @@ export function SettingsDialog({
               value={project.canvas.theme}
               onChange={(event) =>
                 edit((p) => {
-                  p.canvas.theme = event.target.value as 'light' | 'dark';
+                  p.canvas.theme = event.target.value as WorkspaceTheme;
                 })
               }
             >
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
+              {workspaceThemes.map((theme) => (
+                <option key={theme.id} value={theme.id}>
+                  {theme.name}
+                </option>
+              ))}
             </select>
           </label>
+          <div className="theme-swatches" aria-label="Theme previews">
+            {workspaceThemes.map((theme) => (
+              <button
+                key={theme.id}
+                type="button"
+                className="theme-swatch"
+                aria-label={`Use ${theme.name} theme`}
+                aria-pressed={project.canvas.theme === theme.id}
+                onClick={() =>
+                  edit((p) => {
+                    p.canvas.theme = theme.id;
+                  })
+                }
+              >
+                <span
+                  className="theme-preview"
+                  style={{ background: theme.background, color: theme.accent }}
+                  aria-hidden="true"
+                >
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span>{theme.name}</span>
+              </button>
+            ))}
+          </div>
+          <p className="field-caption">
+            Theme is saved with this project. The rail shortcut cycles through all ten palettes.
+          </p>
           {(
             [
               { key: 'grid', label: 'Show grid' },
@@ -77,11 +112,7 @@ export function SettingsDialog({
           </div>
           <div className="property-section">
             <div className="section-title">SUPABASE CONNECTION</div>
-            <p className="small-copy">
-              {connected
-                ? 'Public project configuration is loaded. Sign in to save projects to your account.'
-                : 'Add your project URL and publishable key to enable account sync.'}
-            </p>
+            <p className="small-copy">{cloudStatusText(auth)}</p>
             {projectUrl && (
               <p className="settings-project-url">
                 <code>{projectUrl}</code>

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { themeIds } from './themes';
 const finite = z.number().finite();
 const coordinate = finite.min(-1000000).max(1000000);
 export const pointSchema = z.object({ x: coordinate, y: coordinate });
@@ -93,7 +94,7 @@ export const projectSchema = z
       estimates: z.boolean(),
       zoom: finite.min(0.2).max(12),
       pan: pointSchema,
-      theme: z.enum(['dark', 'light']),
+      theme: z.enum(themeIds),
     }),
   })
   .superRefine((p, ctx) => {

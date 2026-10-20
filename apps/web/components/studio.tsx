@@ -56,11 +56,14 @@ import {
   solveProject,
   distance,
   simulationSamples,
+  nextTheme,
+  isLightTheme,
   type Receiver,
   type Solution,
 } from '@terralab/shared';
 import { useStudio, formatTime, type ToolMode } from '@/lib/store';
 import { saveProject, supabase } from '@/lib/persistence';
+import { observeAuthSession, type AuthState } from '@/lib/auth-session';
 import NetworkCanvas from './network-canvas';
 import Inspector from './inspector';
 import { SettingsDialog } from './settings-dialog';
@@ -100,7 +103,8 @@ function Workspace() {
   const [bottomOpen, setBottomOpen] = useState(true);
   const [bottomTab, setBottomTab] = useState<'overview' | 'measurements' | 'logs'>('overview');
   const [search, setSearch] = useState('');
-  const [email, setEmail] = useState<string | null>(null);
+  const [auth, setAuth] = useState<AuthState>({ status: 'checking', email: null });
+  const email = auth.email;
   const [notice, setNotice] = useState('');
   const [apiResult, setApiResult] = useState<Solution | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -160,15 +164,10 @@ function Workspace() {
         log('Could not restore last workspace.', 'warn');
       }
     }
-    const db = supabase();
-    if (db) {
-      void db.auth.getSession().then(({ data }) => setEmail(data.session?.user.email ?? null));
-      const { data } = db.auth.onAuthStateChange((_, session) => {
-        setEmail(session?.user.email ?? null);
-        void qc.invalidateQueries({ queryKey: ['projects'] });
-      });
-      return () => data.subscription.unsubscribe();
-    }
+    return observeAuthSession(supabase(), (state) => {
+      setAuth(state);
+      void qc.invalidateQueries({ queryKey: ['projects'] });
+    });
   }, [log, qc]);
   useEffect(() => {
     if (!hydrated) return;
@@ -383,14 +382,14 @@ function Workspace() {
         </div>
         <div className="rail-bottom">
           <Tool
-            label="Toggle light / dark theme"
+            label="Cycle workspace theme"
             onClick={() =>
               edit((p) => {
-                p.canvas.theme = p.canvas.theme === 'dark' ? 'light' : 'dark';
+                p.canvas.theme = nextTheme(p.canvas.theme);
               })
             }
           >
-            {project.canvas.theme === 'dark' ? <Sun size={19} /> : <Moon size={19} />}
+            {isLightTheme(project.canvas.theme) ? <Moon size={19} /> : <Sun size={19} />}
           </Tool>
           <Tool label="Keyboard shortcuts" onClick={() => setHelpOpen(true)}>
             <HelpCircle size={20} />
@@ -763,7 +762,7 @@ function Workspace() {
                           CSV
                         </button>
                       </div>
-                      <ScientificChart samples={samples} light={project.canvas.theme === 'light'} />
+                      <ScientificChart samples={samples} theme={project.canvas.theme} />
                     </div>
                   </div>
                 ) : bottomTab === 'measurements' ? (
@@ -843,9 +842,10 @@ function Workspace() {
           <kbd>?</kbd> Help
         </span>
       </footer>
-      <ProjectsDialog open={projectsOpen} onOpenChange={setProjectsOpen} />
+      <ProjectsDialog open={projectsOpen} onOpenChange={setProjectsOpen} auth={auth} />
       <ShareDialog open={shareOpen} onOpenChange={setShareOpen} />
       <SettingsDialog
+        auth={auth}
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         onAccount={() => setAccountOpen(true)}

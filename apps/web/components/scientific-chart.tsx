@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef } from 'react';
+import type { WorkspaceTheme } from '@terralab/shared';
 export type Sample = {
   time: number;
   error: number | null;
@@ -8,12 +9,24 @@ export type Sample = {
   estimateX: number | null;
   estimateY: number | null;
 };
-export default function ScientificChart({ samples, light }: { samples: Sample[]; light: boolean }) {
+export default function ScientificChart({
+  samples,
+  theme,
+}: {
+  samples: Sample[];
+  theme: WorkspaceTheme;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let alive = true;
     const node = ref.current;
     if (!node) return;
+    const styles = getComputedStyle(node);
+    const accent = styles.getPropertyValue('--cyan').trim();
+    // Production CSS shortens monochrome #eeeeee to #eee.
+    const fullAccent = accent.replace(/^#([\da-f])([\da-f])([\da-f])$/i, '#$1$1$2$2$3$3');
+    const muted = styles.getPropertyValue('--muted').trim();
+    const grid = styles.getPropertyValue('--grid').trim();
     let observer: ResizeObserver | undefined;
     import('plotly.js-basic-dist-min')
       .then(({ default: P }) => {
@@ -24,11 +37,11 @@ export default function ScientificChart({ samples, light }: { samples: Sample[];
             y: samples.map((s) => s.error),
             type: 'scatter' as const,
             mode: samples.length < 2 ? ('markers' as const) : ('lines' as const),
-            marker: { color: '#40c9c6', size: 5 },
+            marker: { color: accent, size: 5 },
             connectgaps: false,
-            line: { color: '#40c9c6', width: 1.7 },
+            line: { color: accent, width: 1.7 },
             fill: 'tozeroy' as const,
-            fillcolor: 'rgba(64,201,198,.07)',
+            fillcolor: `rgba(${[1, 3, 5].map((offset) => parseInt(fullAccent.slice(offset, offset + 2), 16)).join(',')},.07)`,
             hovertemplate: '%{x:.1f} s · %{y:.4f} m<extra></extra>',
           },
         ];
@@ -38,17 +51,17 @@ export default function ScientificChart({ samples, light }: { samples: Sample[];
           {
             paper_bgcolor: 'transparent',
             plot_bgcolor: 'transparent',
-            font: { family: 'Consolas, monospace', size: 10, color: light ? '#64748b' : '#708092' },
+            font: { family: 'Consolas, monospace', size: 10, color: muted },
             margin: { l: 44, r: 16, t: 12, b: 30 },
             xaxis: {
               title: { text: 'Simulation time (s)', font: { size: 10 } },
-              gridcolor: light ? '#e2e8f0' : '#1b2936',
+              gridcolor: grid,
               zeroline: false,
               range: [samples[0]?.time ?? 0, Math.max(10, samples.at(-1)?.time ?? 0)],
             },
             yaxis: {
               title: { text: 'Error (m)', font: { size: 10 } },
-              gridcolor: light ? '#e2e8f0' : '#1b2936',
+              gridcolor: grid,
               rangemode: 'tozero',
               zeroline: false,
             },
@@ -75,7 +88,7 @@ export default function ScientificChart({ samples, light }: { samples: Sample[];
       alive = false;
       observer?.disconnect();
     };
-  }, [samples, light]);
+  }, [samples, theme]);
   // Keep the plot between data updates; purging in the data effect races the next react() call.
   useEffect(() => {
     const node = ref.current;

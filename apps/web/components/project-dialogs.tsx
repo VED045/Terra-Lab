@@ -19,6 +19,7 @@ import {
   type Project,
 } from '@terralab/shared';
 import { useStudio } from '@/lib/store';
+import { cloudStatusText, type AuthState } from '@/lib/auth-session';
 import {
   listProjects,
   saveProject,
@@ -29,9 +30,11 @@ import {
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 export function ProjectsDialog({
+  auth,
   open,
   onOpenChange,
 }: {
+  auth: AuthState;
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
@@ -72,10 +75,8 @@ export function ProjectsDialog({
     >
       <div className="library-heading">
         <span className="eyebrow">START WITH A NETWORK</span>
-        <span className="local-badge">
-          {supabase()
-            ? 'Cloud available · sign in to sync'
-            : 'Local workspace · saved in this browser'}
+        <span className="local-badge" role="status">
+          {cloudStatusText(auth)}
         </span>
       </div>
       <div className="template-grid">

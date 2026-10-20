@@ -36,7 +36,7 @@ Browser QR works without Python. In the right inspector, choose **Simulation →
 5. For motion, open **A receiver in motion**, then press Play. Pause, step or scrub the timeline.
 6. Save the project. Edits autosave after 1.5 seconds. Open the project library to rename, duplicate, archive, delete or reload saved projects. Export JSON for a portable backup.
 
-On phones, use the sliders button in the command bar to open/close the properties inspector. Dark is the default theme; the sun button switches themes. The question-mark button lists keyboard shortcuts and model assumptions.
+On phones, use the sliders button in the command bar to open/close the properties inspector. Open **Workspace settings → Appearance & canvas** for ten theme previews, including monochrome black/white, blue, green, amber, violet, rose and sand. The sun/moon rail button cycles palettes; themes save with the project. The question-mark button lists keyboard shortcuts and model assumptions. See [themes and session status](docs/THEMES_AND_SESSION.md) for details and acceptance checks.
 
 ## Architecture
 

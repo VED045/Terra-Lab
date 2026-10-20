@@ -104,7 +104,7 @@ test('Python backend accepts actual editor ranges through the Next route', async
 });
 test('themes and local account setup are usable', async ({ page }) => {
   await boot(page);
-  await page.getByRole('button', { name: 'Toggle light / dark theme', exact: true }).click();
+  await page.getByRole('button', { name: 'Cycle workspace theme', exact: true }).click();
   await expect(page.locator('main')).toHaveClass(/theme-light/);
   await page.getByRole('button', { name: 'Account & cloud sync', exact: true }).click();
   const account = page.getByRole('dialog', { name: 'Your TerraLab account' });

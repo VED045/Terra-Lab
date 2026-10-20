@@ -1,5 +1,23 @@
 import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
+import { workspaceThemes } from '../../packages/shared/src/themes';
+
+test('all workspace palettes apply to the canvas and dialogs and survive reload', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Workspace settings', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Workspace settings' });
+  for (const theme of workspaceThemes) {
+    await dialog.getByRole('button', { name: `Use ${theme.name} theme`, exact: true }).click();
+    await expect(page.locator('main')).toHaveClass(new RegExp(`theme-${theme.id}\\b`));
+    await expect(dialog).toHaveClass(new RegExp(`theme-${theme.id}\\b`));
+    await expect(dialog.getByRole('combobox', { name: 'Workspace theme' })).toHaveValue(theme.id);
+  }
+  await dialog.getByRole('button', { name: 'Close dialog' }).click();
+  await page.reload();
+  await expect(page.locator('main')).toHaveClass(/theme-sand\b/);
+});
 test('workspace settings open from the command bar on desktop', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto('/');
@@ -116,7 +134,7 @@ test('mobile workspace fits the viewport and opens a usable inspector', async ({
 test('light theme and project library have a reviewed layout', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Toggle light / dark theme', exact: true }).click();
+  await page.getByRole('button', { name: 'Cycle workspace theme', exact: true }).click();
   await page.getByRole('button', { name: 'Fit network (F)', exact: true }).click();
   await page.screenshot({
     path: join(
