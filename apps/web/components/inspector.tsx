@@ -19,8 +19,11 @@ import { useStudio } from '@/lib/store';
 import { Button } from './ui/button';
 import { NumberField } from './ui/number-field';
 import { SimulationSettings } from './simulation-settings';
+import { useLabView } from '@/lib/lab-view';
+import { LaboratoryPreviewFacts } from './laboratory-preview';
 const icons = { anchor: Radio, receiver: Crosshair, obstacle: Square, trajectory: Route };
 export default function Inspector({ verifiedSolution }: { verifiedSolution?: Solution | null }) {
+  const scientificSnapshot = useLabView((s) => s.result);
   const { project, selected, update, edit, time } = useStudio();
   const [tab, setTab] = useState<'properties' | 'simulation'>('properties');
   const o = project.objects.find((o) => selected.includes(o.id));
@@ -180,8 +183,9 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
                       {n('Clock drift', 'clockDrift', 'ppm')}
                       {n('Hardware delay', 'hardwareDelay', 'ns')}
                       <p className="field-caption">
-                        Stored calibration metadata. These terms are assumed compensated in
-                        calibrated ranges.
+                        Phase 1 preview assumes compensation. The scientific laboratory injects
+                        these residual timing/hardware errors; 1 ns corresponds to 0.299792458 m
+                        one-way and 1 ppm drift adds 1,000 ns per second.
                       </p>
                     </section>
                     <section className="property-section">
@@ -340,52 +344,56 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
           </>
         )}
       </div>
-      <div className="solver-summary">
-        <div className="section-title">
-          BASELINE SOLUTION{' '}
-          <span className={result?.solution ? 'good' : 'warning'}>
-            {result?.solution ? (
-              <>
-                <Check size={12} />
-                VALID FIX
-              </>
-            ) : (
-              <>
-                <AlertTriangle size={12} />
-                NO FIX
-              </>
-            )}
-          </span>
+      {scientificSnapshot ? (
+        <LaboratoryPreviewFacts compact />
+      ) : (
+        <div className="solver-summary">
+          <div className="section-title">
+            BASELINE SOLUTION{' '}
+            <span className={result?.solution ? 'good' : 'warning'}>
+              {result?.solution ? (
+                <>
+                  <Check size={12} />
+                  VALID FIX
+                </>
+              ) : (
+                <>
+                  <AlertTriangle size={12} />
+                  NO FIX
+                </>
+              )}
+            </span>
+          </div>
+          {result?.solution ? (
+            <>
+              <div className="position-error">
+                <span>Position error</span>
+                <strong data-testid="position-error">
+                  {distance(result.truth, result.solution.position).toFixed(3)} <small>m</small>
+                </strong>
+              </div>
+              <div className="solver-facts">
+                <span>
+                  Usable anchors
+                  <b>
+                    {result.usable.length} / {result.set.measurements.length}
+                  </b>
+                </span>
+                <span>
+                  Condition number<b>{result.solution.condition.toFixed(2)}</b>
+                </span>
+                <span>
+                  Range residual RMS<b>{result.solution.rms.toFixed(3)} m</b>
+                </span>
+              </div>
+            </>
+          ) : (
+            <p className="small-copy warning">
+              {result?.error ?? 'Add an enabled receiver and at least three non-collinear anchors.'}
+            </p>
+          )}
         </div>
-        {result?.solution ? (
-          <>
-            <div className="position-error">
-              <span>Position error</span>
-              <strong data-testid="position-error">
-                {distance(result.truth, result.solution.position).toFixed(3)} <small>m</small>
-              </strong>
-            </div>
-            <div className="solver-facts">
-              <span>
-                Usable anchors
-                <b>
-                  {result.usable.length} / {result.set.measurements.length}
-                </b>
-              </span>
-              <span>
-                Condition number<b>{result.solution.condition.toFixed(2)}</b>
-              </span>
-              <span>
-                Range residual RMS<b>{result.solution.rms.toFixed(3)} m</b>
-              </span>
-            </div>
-          </>
-        ) : (
-          <p className="small-copy warning">
-            {result?.error ?? 'Add an enabled receiver and at least three non-collinear anchors.'}
-          </p>
-        )}
-      </div>
+      )}
     </aside>
   );
 }

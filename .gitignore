@@ -11,4 +11,6 @@ test-results/
 playwright-report/
 .DS_Store
 *.log
+.terralab/
+.pytest-tmp/
 /apps/web/next-env.d.ts

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { themeIds } from './themes';
+import { labConfigSchema } from './laboratory';
 const finite = z.number().finite();
 const coordinate = finite.min(-1000000).max(1000000);
 export const pointSchema = z.object({ x: coordinate, y: coordinate });
@@ -71,6 +72,7 @@ export const projectSchema = z
     description: z.string().max(500),
     updatedAt: z.string().datetime(),
     archived: z.boolean(),
+    laboratory: labConfigSchema.optional(),
     objects: z
       .array(objectSchema)
       .max(500)

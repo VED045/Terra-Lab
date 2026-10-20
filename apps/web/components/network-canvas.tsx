@@ -35,6 +35,8 @@ import {
 import { useStudio, type ToolMode } from '@/lib/store';
 import { Tool } from './ui/tool';
 import { Button } from './ui/button';
+import { LaboratoryOverlay } from './laboratory-overlay';
+import { useLabView } from '@/lib/lab-view';
 const tools: { mode: ToolMode; label: string; icon: typeof Radio }[] = [
   { mode: 'select', label: 'Select / multi-select (V / Shift)', icon: MousePointer2 },
   { mode: 'pan', label: 'Pan canvas (H / middle drag)', icon: Move },
@@ -51,6 +53,7 @@ export default function NetworkCanvas({
   verifiedSolution?: Solution | null;
 }) {
   const { project, selected, tool, time, playing, edit, select, setTool, add, log } = useStudio();
+  const laboratory = useLabView((s) => s.result);
   const host = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ width: 900, height: 620 });
@@ -93,10 +96,11 @@ export default function NetworkCanvas({
   );
   const focus = receivers.find((r) => selected.includes(r.id)) ?? receivers[0];
   const result = useMemo(() => {
+    if (laboratory) return null;
     if (!focus) return null;
     const live = solveProject(project, focus, time);
     return verifiedSolution ? { ...live, solution: verifiedSolution, error: null } : live;
-  }, [project, focus, time, verifiedSolution]);
+  }, [project, focus, time, verifiedSolution, laboratory]);
   function fit() {
     const points = project.objects.flatMap((o) =>
       o.kind === 'trajectory'
@@ -699,6 +703,7 @@ export default function NetworkCanvas({
             stroke="var(--cyan)"
           />
         )}
+        <LaboratoryOverlay project={project} view={view} />
       </svg>
       {draft.length > 0 && (
         <div className="draft-hint">

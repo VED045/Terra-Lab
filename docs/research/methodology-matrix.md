@@ -1,4 +1,6 @@
-# TerraLab Phase 1 methodology matrix
+# TerraLab methodology matrix — Phase 1 evidence and Phase 2 implementation
+
+Phase 1 sections below remain the historical baseline contract. The user explicitly approved Phase 2 on 20 October 2026. The current scientific equations and compatibility assumptions are in [PHASE_2_METHODS.md](../PHASE_2_METHODS.md); historical deferrals below no longer describe the laboratory implementation. Phase 3 remains excluded.
 
 Reviewed 20 October 2026. All seven user-supplied PDFs were extracted and reviewed for their relevant measurement, estimator, calibration and scope sections. The supplied implementation prompt defines the task; research documents supply evidence and context. Editorial instructions embedded in research notes do not alter the task.
 
@@ -61,3 +63,18 @@ Simulation state is a timestamp on a fixed-step clock. Monotonic elapsed wall ti
 ## Phase 2 extension contract
 
 Add new tagged observation types and separate validation/solvers. Preserve Phase 1 fixtures as regression tests. Require explicit receiver-clock state for pseudoranges, explicit differencing/covariance assumptions for TDOA, and turnaround/hardware calibration for RTT. Noise/bias injection, robust refinements, comparisons, Monte Carlo studies and multiband CSI processing require user approval for the next phase.
+
+## Phase 2 implementation and validation matrix
+
+| Research distinction / requirement | Implemented contract | Evidence and remaining limits |
+|---|---|---|
+| Measurement model versus estimator | Tagged TOA, clock-unknown pseudorange, TDOA, RTT, AOA, RSS and defined TOA/AOA/RSS hybrids; independently selected compatible estimators | All seven models recover known noiseless positions to <1e-5 m in automated fixtures. Incompatible linear LS/RANSAC combinations are rejected in both schemas. No waveform/carrier/CSI claims. |
+| Receiver/transmitter timing and calibration | Explicit ns-to-range conversion, ppm drift, residual hardware delays, pseudorange clock state, RTT actual/calibrated delay subtraction | Tests recover receiver clock bias and verify c·dt and c·dt/2, calibration sensitivity and offset cancellation. TOA calibration errors remain residual biases, not secretly compensated inputs. |
+| Shared TDOA reference | Difference operator D and complete covariance D R Dᵀ, with algebraic common-mode cancellation | Covariance diagonal/off-diagonal tests and zero-independent-noise numerical-stability test. Missing explicit reference yields no fix. Reference-order whitening matters for robust losses. |
+| Reliability and robust estimation | Weighted nonlinear LS, unweighted NLS, Huber, Soft-L1, fixed residual gating, seeded range RANSAC and nominal Gaussian MLE | Known outlier/heteroscedastic fixtures; paired benchmark observations stored with identical hashes. WLS/MLE are equivalent under fixed known Gaussian covariance. Linear LS versus WLS is not an isolated weighting comparison. |
+| Mobility and tracking | Existing motion equations evaluated at each epoch; EKF/UKF XY/velocity and optional clock states | Known velocity, circular/random/custom motion and supported model/filter combinations tested. Constant-velocity dynamics, first-order covariance and unmodeled temporal shadowing/survey correlation limit uncertainty interpretation. |
+| Propagation and availability | Exact 2D obstacle intersection; statistical positive NLOS bias, loss, shadowing, detection/SNR, missing anchors, availability/dropout and Student-t contamination | Parameter sensitivity and all-dropout/no-fix accounting fixtures. Log-distance/link-budget approximations; no ray tracing, antenna array or material-specific multipath. |
+| Reproducible experiments and analytics | SeedSequence/PCG64 keyed streams, matched frames, observed runtime, explicit failures, snapshots and raw output | Clean and contaminated six-anchor / three-location examples each contain 3,600 actual estimator epochs. Reproducibility ignores runtime/timestamps; scientific values use fixed seeds and pinned software. Failures are null errors and remain in denominators. |
+| Scientific visualization and exports | Toggleable truth/estimate/error/range/TDOA/AOA/link/rejection/uncertainty/coverage/geometry/heatmap layers; stored-output charts and reports | Browser rendering, theme/responsive behavior, downloads and signed-in cloud Storage need manual acceptance because the user browser was policy-blocked. No new browser pass is claimed. |
+
+Primary algorithm references: [SciPy nonlinear least squares](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html), [Welch and Bishop EKF](https://www.cs.unc.edu/~welch/media/pdf/kalman_intro.pdf), [Wan and van der Merwe UKF](https://groups.seas.harvard.edu/courses/cs281/papers/unscented.pdf). Research-paper provenance in the original source inventory remains unchanged; implementing a synthetic equation does not reproduce a paper's RF hardware or published accuracy.

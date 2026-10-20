@@ -9,6 +9,7 @@ export function Dialog({
   description,
   children,
   wide = false,
+  className = '',
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -16,6 +17,7 @@ export function Dialog({
   description?: string;
   children: React.ReactNode;
   wide?: boolean;
+  className?: string;
 }) {
   const theme = useStudio((s) => s.project.canvas.theme);
   return (
@@ -23,7 +25,7 @@ export function Dialog({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="dialog-overlay" />
         <DialogPrimitive.Content
-          className={`dialog-content theme-${theme} ${wide ? 'dialog-wide' : ''}`}
+          className={`dialog-content theme-${theme} ${wide ? 'dialog-wide' : ''} ${className}`}
         >
           <DialogPrimitive.Title className="dialog-title">{title}</DialogPrimitive.Title>
           <DialogPrimitive.Description className="dialog-description">

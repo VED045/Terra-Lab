@@ -7,7 +7,9 @@ export function SimulationSettings() {
     <>
       <div className="section-title">SIMULATION CONFIGURATION</div>
       <p className="small-copy">
-        Deterministic time. Synthetic calibrated ranges in a horizontal plane.
+        Live baseline preview: synthetic calibrated ranges in a horizontal plane. Advanced
+        measurement models, estimator comparisons and experiment timing are configured separately in
+        Scientific laboratory.
       </p>
       <NumberField
         label="Duration"

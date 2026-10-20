@@ -1,6 +1,6 @@
 # TerraLab
 
-Phase 1 research studio for GNSS-independent terrestrial positioning. A coordinate-aware network editor, deterministic mobility simulator, and calibrated-range 2D multilateration baseline.
+Research studio for GNSS-independent terrestrial positioning. Phase 2 adds a reproducible scientific laboratory while preserving the Phase 1 network editor, deterministic mobility and calibrated-range baseline.
 
 ## Start on Windows
 
@@ -38,6 +38,27 @@ Browser QR works without Python. In the right inspector, choose **Simulation →
 
 On phones, use the sliders button in the command bar to open/close the properties inspector. Open **Workspace settings → Appearance & canvas** for ten theme previews, including monochrome black/white, blue, green, amber, violet, rose and sand. The sun/moon rail button cycles palettes; themes save with the project. The question-mark button lists keyboard shortcuts and model assumptions. See [themes and session status](docs/THEMES_AND_SESSION.md) for details and acceptance checks.
 
+## Scientific laboratory
+
+Click **Laboratory** in the command bar. Experiments use a frozen copy of the current network. Configure the measurement model, compatible estimators, noise/propagation, filters, trials and parameter sweep. Every numeric laboratory control has units, bounds, defaults, a slider and direct entry. **Load six-anchor benchmark** opens the documented synthetic layout with three receiver locations and timing values 0.1, 1, 3 and 10 ns; it explicitly replaces the current workspace like a starter template.
+
+The Python API must be running. **Run reproducible experiment** starts a background job with matched observations across estimators. Results show progress/cancellation, fix and failure counts, position/residual statistics, runtime, trajectories, histograms, CDF and sweep plots. Use a positive duration and a moving receiver for filtering/speed studies. Add a spatial grid for sampled coverage/error maps.
+
+**Preview on studio canvas** displays selected recorded layers. The inspector and bottom panel then show scientific snapshot metrics; **Clear lab overlay** returns to the live baseline. **Share / export** exports that scientific snapshot as PNG, complete JSON, CSV or a printable HTML report. JSON/CSV contain real attempted epochs, including failures. Restore the saved network before visual exports if the network has changed.
+
+Completed/cancelled/failed snapshots persist in browser IndexedDB and atomic API checkpoint files under ignored `.terralab/experiments/`. **Saved snapshots** opens local/imported or private cloud outputs. Cloud storage uses the existing owner-protected bucket in JSON chunks with a checked manifest; no new Supabase migration or credential is required. Editing the workspace never changes an old result.
+
+Reproduce both committed examples:
+
+```powershell
+node scripts/python.mjs scripts/benchmark_phase2.py --trials 100
+node scripts/python.mjs scripts/benchmark_phase2.py --trials 100 --clean --out docs/examples/timing-clean
+```
+
+Each example runs 3,600 estimator epochs: six anchors, three locations, 100 trials, four timing levels and LS/WLS/Huber. Actual requests, complete outputs and summary JSON are in `docs/examples/`. The contaminated case uses 10% extra NLOS, a 5 m mean excess path, and 2% Student-t outliers; the clean case disables contamination. These are simulation settings, not hardware claims. Local computation times vary.
+
+See [scientific methods](docs/PHASE_2_METHODS.md), [parameter reference](docs/LAB_PARAMETER_REFERENCE.md), and [Phase 2 completion report](docs/PHASE_2_COMPLETION_REPORT.md) for assumptions, compatibility, actual results, tests, limits and manual acceptance. The new browser workflows and authenticated cloud operations still require manual acceptance; the numerical tests and isolated API integration are independently executable.
+
 ## Architecture
 
 ```text
@@ -52,10 +73,14 @@ packages/shared/src/
   mobility.ts            Deterministic clock and six motion modes
   solver.ts              Measurement interface, seeded ranges, Householder QR
   templates.ts           Four runnable seed networks
+  laboratory.ts          Phase 2 configuration, compatibility and parameter catalog
 services/api/
   terralab/models.py     Pydantic observation/response contracts
   terralab/engine.py     NumPy/SciPy SVD baseline
   terralab/main.py       FastAPI /health and /solve
+  terralab/physics.py    TOA/pseudorange/TDOA/RTT/AOA/RSS/hybrid observations
+  terralab/estimators.py SVD, nonlinear/robust estimators, EKF and UKF
+  terralab/experiments.py Paired Monte Carlo jobs, metrics and atomic checkpoints
 supabase/                PostgreSQL migration, RLS and private Storage policies
 docs/                    Methodology, implementation status and acceptance report
 tests/e2e/               Playwright editor-to-API acceptance tests
@@ -102,9 +127,9 @@ The Python service must be running on 8000 for the API E2E test. Test reports an
 
 ## Scientific scope
 
-The solver accepts calibrated 2D ranges, not unknown-clock one-way pseudoranges. RF and clock fields are persisted calibration metadata. Only range sigma changes the Phase 1 noise model. Altitude is metadata. Obstructions flag geometric LOS; exclusion is optional, and no RF propagation is simulated. The displayed geometry condition is not GDOP. Position error is simulated truth comparison, not a measured hardware result.
+The preserved Phase 1 live preview and `/solve` endpoint accept calibrated 2D ranges, with RF/clock fields assumed compensated. The separate Phase 2 laboratory injects documented RF/timing/clock/propagation errors and supports clock-unknown pseudorange estimation, covariance-aware TDOA, RTT, AOA, RSS and declared hybrid models. Altitude remains outside the horizontal equations. Geometry condition is not GDOP; uncertainty is a nominal local approximation. Position error compares against simulated truth and is not measured hardware performance.
 
-Read `docs/research/methodology-matrix.md` for equations, assumptions, paper-by-paper evidence and extension boundaries. `docs/IMPLEMENTATION_PROGRESS.md` records actual verification and known limits. Phase 2 requires explicit approval; no timing-method comparison, robust estimation, Monte Carlo, collaboration or hardware processing is included.
+Read `docs/research/methodology-matrix.md` for research evidence and `docs/PHASE_2_METHODS.md` for the current equations, assumptions, estimator matrix and failure accounting. `docs/IMPLEMENTATION_PROGRESS.md` records verification and known limits. Phase 2 was explicitly approved. No Phase 3 collaboration, particle filter, advanced multiband CSI or waveform/hardware processing is included; Phase 3 requires separate approval.
 
 ## Repository
 

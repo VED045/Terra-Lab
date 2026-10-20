@@ -10,6 +10,7 @@ import {
 import * as Tooltip from '@radix-ui/react-tooltip';
 import {
   Activity,
+  FlaskConical,
   Radio,
   Crosshair,
   Square,
@@ -58,6 +59,8 @@ import {
   simulationSamples,
   nextTheme,
   isLightTheme,
+  measurementNames,
+  estimatorNames,
   type Receiver,
   type Solution,
 } from '@terralab/shared';
@@ -69,6 +72,9 @@ import Inspector from './inspector';
 import { SettingsDialog } from './settings-dialog';
 import { ProjectsDialog, AccountDialog } from './project-dialogs';
 import { ShareDialog } from './share-dialog';
+import { LaboratoryDialog } from './laboratory-dialog';
+import { LaboratoryPreviewFacts } from './laboratory-preview';
+import { useLabView } from '@/lib/lab-view';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 import { Tool } from './ui/tool';
@@ -99,6 +105,9 @@ function Workspace() {
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [laboratoryOpen, setLaboratoryOpen] = useState(false);
+  const labView = useLabView();
+  const labRecord = labView.result?.records[labView.index];
   const [helpOpen, setHelpOpen] = useState(false);
   const [bottomOpen, setBottomOpen] = useState(true);
   const [bottomTab, setBottomTab] = useState<'overview' | 'measurements' | 'logs'>('overview');
@@ -189,6 +198,9 @@ function Workspace() {
     setApiResult(null);
   }, [project, time, selected]);
   useEffect(() => {
+    if (playing) useLabView.getState().clear();
+  }, [playing]);
+  useEffect(() => {
     if (!playing) return;
     let last = performance.now(),
       carry = 0;
@@ -221,6 +233,7 @@ function Workspace() {
         accountOpen ||
         shareOpen ||
         settingsOpen ||
+        laboratoryOpen ||
         helpOpen
       )
         return;
@@ -273,7 +286,7 @@ function Workspace() {
     };
     window.addEventListener('keydown', fn);
     return () => window.removeEventListener('keydown', fn);
-  }, [projectsOpen, accountOpen, shareOpen, settingsOpen, helpOpen, saveCurrent]);
+  }, [projectsOpen, accountOpen, shareOpen, settingsOpen, laboratoryOpen, helpOpen, saveCurrent]);
   const receivers = project.objects.filter(
     (o): o is Receiver => o.kind === 'receiver' && o.enabled,
   );
@@ -413,7 +426,7 @@ function Workspace() {
           <span>{project.name}</span>
           <ChevronDown size={13} />
         </button>
-        <span className="phase-badge">PHASE 01</span>
+        <span className="phase-badge">PHASE 02</span>
         <div className="topbar-spacer" />
         <span className="save-state">
           {save.isPending ? (
@@ -454,9 +467,34 @@ function Workspace() {
         </div>
         <span className="method-chip">
           <span className="tiny-dot" />
-          Calibrated ranges <span>·</span> Linear least squares
+          {labView.result && labRecord ? (
+            <>
+              {measurementNames[labView.result.request.config.measurement]} <span>·</span>{' '}
+              {estimatorNames[labRecord.estimator]}
+            </>
+          ) : (
+            <>
+              Calibrated ranges <span>·</span> Linear least squares
+            </>
+          )}
         </span>
         <div className="command-actions">
+          <Button
+            size="sm"
+            aria-label="Scientific laboratory"
+            onClick={() => {
+              s.play(false);
+              setLaboratoryOpen(true);
+            }}
+          >
+            <FlaskConical size={15} />
+            <span className="hide-small">Laboratory</span>
+          </Button>
+          {labView.result && (
+            <Button size="sm" onClick={labView.clear}>
+              Clear lab overlay
+            </Button>
+          )}
           <Tool label="Undo (Ctrl+Z)" disabled={!s.past.length} onClick={s.undo}>
             <Undo2 size={16} />
           </Tool>
@@ -484,7 +522,15 @@ function Workspace() {
             <Share2 size={14} />
             <span className="hide-small">Share / export</span>
           </Button>
-          <Button size="sm" variant="default" onClick={() => run.mutate()} disabled={run.isPending}>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={() => {
+              labView.clear();
+              run.mutate();
+            }}
+            disabled={run.isPending}
+          >
             <Play size={13} fill="currentColor" />
             {run.isPending ? 'Solving…' : 'Run baseline'}
           </Button>
@@ -587,40 +633,59 @@ function Workspace() {
           >
             <div className="simulation-header">
               <div className="simulation-tabs">
-                <button
-                  className={bottomTab === 'overview' ? 'active' : ''}
-                  onClick={() => {
-                    setBottomTab('overview');
-                    setBottomOpen(true);
-                  }}
-                >
-                  <Activity size={14} />
-                  Simulation
-                </button>
-                <button
-                  className={bottomTab === 'measurements' ? 'active' : ''}
-                  onClick={() => {
-                    setBottomTab('measurements');
-                    setBottomOpen(true);
-                  }}
-                >
-                  <Table2 size={14} />
-                  Measurements
-                </button>
-                <button
-                  className={bottomTab === 'logs' ? 'active' : ''}
-                  onClick={() => {
-                    setBottomTab('logs');
-                    setBottomOpen(true);
-                  }}
-                >
-                  <Terminal size={14} />
-                  Log <span>{logs.length}</span>
-                </button>
+                {labView.result ? (
+                  <>
+                    <button className="active">Recorded result</button>
+                    <button onClick={() => setLaboratoryOpen(true)}>
+                      All analytics & observations
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className={bottomTab === 'overview' ? 'active' : ''}
+                      onClick={() => {
+                        setBottomTab('overview');
+                        setBottomOpen(true);
+                      }}
+                    >
+                      <Activity size={14} />
+                      Simulation
+                    </button>
+                    <button
+                      className={bottomTab === 'measurements' ? 'active' : ''}
+                      onClick={() => {
+                        setBottomTab('measurements');
+                        setBottomOpen(true);
+                      }}
+                    >
+                      <Table2 size={14} />
+                      Measurements
+                    </button>
+                    <button
+                      className={bottomTab === 'logs' ? 'active' : ''}
+                      onClick={() => {
+                        setBottomTab('logs');
+                        setBottomOpen(true);
+                      }}
+                    >
+                      <Terminal size={14} />
+                      Log <span>{logs.length}</span>
+                    </button>
+                  </>
+                )}
               </div>
               <span className="simulation-engine">
-                {apiResult ? 'Last run verified' : 'Live preview'} ·{' '}
-                {apiResult && project.settings.engine === 'python' ? 'Python SVD' : 'Browser QR'}
+                {labView.result ? (
+                  'Stored scientific result · Python'
+                ) : (
+                  <>
+                    {apiResult ? 'Last run verified' : 'Live preview'} ·{' '}
+                    {apiResult && project.settings.engine === 'python'
+                      ? 'Python SVD'
+                      : 'Browser QR'}
+                  </>
+                )}
               </span>
               <Tool
                 label={bottomOpen ? 'Collapse simulation panel' : 'Expand simulation panel'}
@@ -629,198 +694,201 @@ function Workspace() {
                 {bottomOpen ? <PanelBottomClose size={15} /> : <PanelBottomOpen size={15} />}
               </Tool>
             </div>
-            {bottomOpen && (
-              <>
-                <div className="transport">
-                  <div className="transport-buttons">
-                    <Tool
-                      label="Restart simulation"
-                      onClick={() => {
-                        s.setTime(0);
-                        s.play(true);
-                        log('Simulation restarted.');
+            {bottomOpen &&
+              (labView.result ? (
+                <LaboratoryPreviewFacts onOpen={() => setLaboratoryOpen(true)} />
+              ) : (
+                <>
+                  <div className="transport">
+                    <div className="transport-buttons">
+                      <Tool
+                        label="Restart simulation"
+                        onClick={() => {
+                          s.setTime(0);
+                          s.play(true);
+                          log('Simulation restarted.');
+                        }}
+                      >
+                        <RotateCcw size={15} />
+                      </Tool>
+                      <Button
+                        size="icon"
+                        className="play-control"
+                        variant="default"
+                        aria-label={playing ? 'Pause simulation' : 'Play simulation'}
+                        onClick={() => {
+                          if (time >= project.settings.duration) s.setTime(0);
+                          s.play(!playing);
+                        }}
+                      >
+                        {playing ? (
+                          <Pause size={15} fill="currentColor" />
+                        ) : (
+                          <Play size={15} fill="currentColor" />
+                        )}
+                      </Button>
+                      <Tool
+                        label="Stop simulation"
+                        onClick={() => {
+                          s.play(false);
+                          s.setTime(0);
+                          log('Simulation stopped and reset.');
+                        }}
+                      >
+                        <StopIcon size={13} />
+                      </Tool>
+                      <Tool
+                        label="Single simulation step"
+                        onClick={() => {
+                          s.play(false);
+                          s.setTime(Number((time + project.settings.step).toFixed(9)));
+                        }}
+                      >
+                        <SkipForward size={15} />
+                      </Tool>
+                    </div>
+                    <span className="simulation-time mono" data-testid="simulation-time">
+                      {formatTime(time)}
+                      <span> / {formatTime(project.settings.duration)}</span>
+                    </span>
+                    <input
+                      className="timeline"
+                      aria-label="Simulation timeline"
+                      type="range"
+                      min="0"
+                      max={project.settings.duration}
+                      step={project.settings.step}
+                      value={time}
+                      onChange={(e) => {
+                        s.play(false);
+                        s.setTime(Number(e.target.value));
                       }}
+                    />
+                    <select
+                      className="speed-select"
+                      aria-label="Playback speed"
+                      value={speed}
+                      onChange={(e) => s.setSpeed(Number(e.target.value))}
                     >
-                      <RotateCcw size={15} />
-                    </Tool>
-                    <Button
-                      size="icon"
-                      className="play-control"
-                      variant="default"
-                      aria-label={playing ? 'Pause simulation' : 'Play simulation'}
-                      onClick={() => {
-                        if (time >= project.settings.duration) s.setTime(0);
-                        s.play(!playing);
-                      }}
-                    >
-                      {playing ? (
-                        <Pause size={15} fill="currentColor" />
-                      ) : (
-                        <Play size={15} fill="currentColor" />
+                      {[0.25, 0.5, 1, 2, 4].map((v) => (
+                        <option value={v} key={v}>
+                          {v}×
+                        </option>
+                      ))}
+                    </select>
+                    <span className="running-state">
+                      <span className={`status-dot ${playing ? '' : 'idle'}`} />
+                      {playing ? 'Running' : 'Paused'}
+                    </span>
+                  </div>
+                  {bottomTab === 'overview' ? (
+                    <div className="simulation-overview">
+                      <div className="metric-grid">
+                        <div className="metric">
+                          <span>POSITION ERROR</span>
+                          <strong>
+                            {result?.solution
+                              ? distance(result.truth, result.solution.position).toFixed(3)
+                              : '—'}
+                            <small>m</small>
+                          </strong>
+                          <p>Current horizontal fix</p>
+                        </div>
+                        <div className="metric">
+                          <span>SAMPLED RMSE</span>
+                          <strong>
+                            {rmse?.toFixed(3) ?? '—'}
+                            <small>m</small>
+                          </strong>
+                          <p>{samples.length} deterministic samples</p>
+                        </div>
+                        <div className="metric">
+                          <span>USABLE ANCHORS</span>
+                          <strong>
+                            {result?.usable.length ?? 0}
+                            <small>/ {anchors.filter((o) => o.enabled).length}</small>
+                          </strong>
+                          <p>
+                            {result?.set.measurements.filter((m) => m.blocked).length ?? 0}{' '}
+                            obstructed links
+                          </p>
+                        </div>
+                        <div className="metric">
+                          <span>GEOMETRY CONDITION</span>
+                          <strong>
+                            {result?.solution?.condition.toFixed(2) ?? '—'}
+                            <small>κ</small>
+                          </strong>
+                          <p>{result?.solution ? 'Rank 2 · solution available' : 'No valid fix'}</p>
+                        </div>
+                      </div>
+                      <div className="chart-container">
+                        <div className="chart-title">
+                          <span>Position error over time</span>
+                          <button onClick={exportSamples} aria-label="Export ground truth samples">
+                            <Download size={12} />
+                            CSV
+                          </button>
+                        </div>
+                        <ScientificChart samples={samples} theme={project.canvas.theme} />
+                      </div>
+                    </div>
+                  ) : bottomTab === 'measurements' ? (
+                    <div className="measurements-table-wrap">
+                      <table className="measurements-table">
+                        <thead>
+                          <tr>
+                            <th>TRANSMITTER</th>
+                            <th>RANGE (m)</th>
+                            <th>FIT DISTANCE (m)</th>
+                            <th>RESIDUAL (m)</th>
+                            <th>PATH</th>
+                            <th>USED</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result?.set.measurements.map((m) => {
+                            const idx = result.usable.findIndex((x) => x.anchorId === m.anchorId);
+                            return (
+                              <tr key={m.anchorId}>
+                                <td>{project.objects.find((o) => o.id === m.anchorId)?.name}</td>
+                                <td>{m.range.toFixed(4)}</td>
+                                <td>
+                                  {result.solution
+                                    ? distance(result.solution.position, m.anchor).toFixed(4)
+                                    : '—'}
+                                </td>
+                                <td>
+                                  {result.solution && idx >= 0
+                                    ? result.solution.residuals[idx].toFixed(4)
+                                    : '—'}
+                                </td>
+                                <td className={m.blocked ? 'warning' : 'good'}>
+                                  {m.blocked ? 'Obstructed' : 'LOS'}
+                                </td>
+                                <td>{idx >= 0 ? 'Yes' : 'No'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {!receiver && (
+                        <p className="small-copy">Add a receiver to see range observations.</p>
                       )}
-                    </Button>
-                    <Tool
-                      label="Stop simulation"
-                      onClick={() => {
-                        s.play(false);
-                        s.setTime(0);
-                        log('Simulation stopped and reset.');
-                      }}
-                    >
-                      <StopIcon size={13} />
-                    </Tool>
-                    <Tool
-                      label="Single simulation step"
-                      onClick={() => {
-                        s.play(false);
-                        s.setTime(Number((time + project.settings.step).toFixed(9)));
-                      }}
-                    >
-                      <SkipForward size={15} />
-                    </Tool>
-                  </div>
-                  <span className="simulation-time mono" data-testid="simulation-time">
-                    {formatTime(time)}
-                    <span> / {formatTime(project.settings.duration)}</span>
-                  </span>
-                  <input
-                    className="timeline"
-                    aria-label="Simulation timeline"
-                    type="range"
-                    min="0"
-                    max={project.settings.duration}
-                    step={project.settings.step}
-                    value={time}
-                    onChange={(e) => {
-                      s.play(false);
-                      s.setTime(Number(e.target.value));
-                    }}
-                  />
-                  <select
-                    className="speed-select"
-                    aria-label="Playback speed"
-                    value={speed}
-                    onChange={(e) => s.setSpeed(Number(e.target.value))}
-                  >
-                    {[0.25, 0.5, 1, 2, 4].map((v) => (
-                      <option value={v} key={v}>
-                        {v}×
-                      </option>
-                    ))}
-                  </select>
-                  <span className="running-state">
-                    <span className={`status-dot ${playing ? '' : 'idle'}`} />
-                    {playing ? 'Running' : 'Paused'}
-                  </span>
-                </div>
-                {bottomTab === 'overview' ? (
-                  <div className="simulation-overview">
-                    <div className="metric-grid">
-                      <div className="metric">
-                        <span>POSITION ERROR</span>
-                        <strong>
-                          {result?.solution
-                            ? distance(result.truth, result.solution.position).toFixed(3)
-                            : '—'}
-                          <small>m</small>
-                        </strong>
-                        <p>Current horizontal fix</p>
-                      </div>
-                      <div className="metric">
-                        <span>SAMPLED RMSE</span>
-                        <strong>
-                          {rmse?.toFixed(3) ?? '—'}
-                          <small>m</small>
-                        </strong>
-                        <p>{samples.length} deterministic samples</p>
-                      </div>
-                      <div className="metric">
-                        <span>USABLE ANCHORS</span>
-                        <strong>
-                          {result?.usable.length ?? 0}
-                          <small>/ {anchors.filter((o) => o.enabled).length}</small>
-                        </strong>
-                        <p>
-                          {result?.set.measurements.filter((m) => m.blocked).length ?? 0} obstructed
-                          links
-                        </p>
-                      </div>
-                      <div className="metric">
-                        <span>GEOMETRY CONDITION</span>
-                        <strong>
-                          {result?.solution?.condition.toFixed(2) ?? '—'}
-                          <small>κ</small>
-                        </strong>
-                        <p>{result?.solution ? 'Rank 2 · solution available' : 'No valid fix'}</p>
-                      </div>
                     </div>
-                    <div className="chart-container">
-                      <div className="chart-title">
-                        <span>Position error over time</span>
-                        <button onClick={exportSamples} aria-label="Export ground truth samples">
-                          <Download size={12} />
-                          CSV
-                        </button>
-                      </div>
-                      <ScientificChart samples={samples} theme={project.canvas.theme} />
+                  ) : (
+                    <div className="log-list" role="log">
+                      {logs.map((entry, i) => (
+                        <div key={i} className={entry.level === 'warn' ? 'warning' : ''}>
+                          <time>{entry.time}</time>
+                          <span className="log-level">{entry.level.toUpperCase()}</span>
+                          <span>{entry.text}</span>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ) : bottomTab === 'measurements' ? (
-                  <div className="measurements-table-wrap">
-                    <table className="measurements-table">
-                      <thead>
-                        <tr>
-                          <th>TRANSMITTER</th>
-                          <th>RANGE (m)</th>
-                          <th>FIT DISTANCE (m)</th>
-                          <th>RESIDUAL (m)</th>
-                          <th>PATH</th>
-                          <th>USED</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {result?.set.measurements.map((m) => {
-                          const idx = result.usable.findIndex((x) => x.anchorId === m.anchorId);
-                          return (
-                            <tr key={m.anchorId}>
-                              <td>{project.objects.find((o) => o.id === m.anchorId)?.name}</td>
-                              <td>{m.range.toFixed(4)}</td>
-                              <td>
-                                {result.solution
-                                  ? distance(result.solution.position, m.anchor).toFixed(4)
-                                  : '—'}
-                              </td>
-                              <td>
-                                {result.solution && idx >= 0
-                                  ? result.solution.residuals[idx].toFixed(4)
-                                  : '—'}
-                              </td>
-                              <td className={m.blocked ? 'warning' : 'good'}>
-                                {m.blocked ? 'Obstructed' : 'LOS'}
-                              </td>
-                              <td>{idx >= 0 ? 'Yes' : 'No'}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    {!receiver && (
-                      <p className="small-copy">Add a receiver to see range observations.</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="log-list" role="log">
-                    {logs.map((entry, i) => (
-                      <div key={i} className={entry.level === 'warn' ? 'warning' : ''}>
-                        <time>{entry.time}</time>
-                        <span className="log-level">{entry.level.toUpperCase()}</span>
-                        <span>{entry.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              ))}
           </section>
         </div>
         <Inspector verifiedSolution={apiResult} />
@@ -838,12 +906,16 @@ function Workspace() {
           {obstacles.length} obstacles
         </span>
         <span>
-          2D calibrated-range model <span className="statusbar-divider" />
+          {labView.result
+            ? `2D ${measurementNames[labView.result.request.config.measurement]} · recorded`
+            : '2D calibrated-range model'}{' '}
+          <span className="statusbar-divider" />
           <kbd>?</kbd> Help
         </span>
       </footer>
       <ProjectsDialog open={projectsOpen} onOpenChange={setProjectsOpen} auth={auth} />
       <ShareDialog open={shareOpen} onOpenChange={setShareOpen} />
+      <LaboratoryDialog open={laboratoryOpen} onOpenChange={setLaboratoryOpen} />
       <SettingsDialog
         auth={auth}
         open={settingsOpen}
@@ -859,7 +931,7 @@ function Workspace() {
         open={helpOpen}
         onOpenChange={setHelpOpen}
         title="A precise starting point."
-        description="TerraLab Phase 1 · Network editor and calibrated-range positioning baseline"
+        description="TerraLab Phase 2 · Network editor, calibrated baseline and scientific laboratory"
         wide
       >
         <div className="help-grid">

@@ -10,6 +10,9 @@ import {
 import { useStudio } from '@/lib/store';
 import { buildSimulationReport, exportStem } from '@/lib/report';
 import { captureNetworkSvg, networkPng, downloadFile } from '@/lib/downloads';
+import { useLabView } from '@/lib/lab-view';
+import { experimentCsv } from '@/lib/laboratory';
+import { buildExperimentReport } from '@/lib/lab-report';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 const formats = [
@@ -46,6 +49,7 @@ export function ShareDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { result: labResult, index: labIndex } = useLabView();
   const [snapshot, setSnapshot] = useState<SimulationSnapshot | null>(null),
     [format, setFormat] = useState<Format>('png');
   const [file, setFile] = useState<File | null>(null),
@@ -74,6 +78,35 @@ export function ShareDialog({
     setMessage('');
     void (async () => {
       const stem = exportStem(snapshot.project.name, snapshot.time);
+      if (labResult) {
+        const record = labResult.records[labIndex];
+        if (format === 'json')
+          return new File([JSON.stringify(labResult)], `${stem}-experiment.json`, {
+            type: 'application/json',
+          });
+        if (format === 'csv')
+          return new File([experimentCsv(labResult)], `${stem}-experiment.csv`, {
+            type: 'text/csv',
+          });
+        if (
+          JSON.stringify(snapshot.project.objects) !==
+          JSON.stringify(labResult.request.project.objects)
+        )
+          throw Error(
+            'Restore the saved network in Laboratory before exporting a scientific image/report. JSON and CSV remain available.',
+          );
+        if (format === 'report')
+          return new File(
+            [buildExperimentReport(labResult, captureNetworkSvg(), labIndex)],
+            `${stem}-experiment.html`,
+            { type: 'text/html' },
+          );
+        return new File(
+          [await networkPng(captureNetworkSvg(), labResult.request.project, record?.time ?? 0)],
+          `${stem}-experiment.png`,
+          { type: 'image/png' },
+        );
+      }
       switch (format) {
         case 'json':
           return new File([serializeProject(snapshot.project)], `${stem}-setup.json`, {
@@ -111,7 +144,7 @@ export function ShareDialog({
     return () => {
       active = false;
     };
-  }, [snapshot, format]);
+  }, [snapshot, format, labResult, labIndex]);
   const canShare = Boolean(
     file && typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] }),
   );
@@ -142,13 +175,37 @@ export function ShareDialog({
           >
             <Icon size={20} />
             <span>
-              <b>{title}</b>
-              <small>{detail}</small>
+              <b>
+                {labResult
+                  ? {
+                      png: 'Scientific screenshot',
+                      json: 'Complete experiment',
+                      report: 'Scientific report',
+                      csv: 'All experiment epochs',
+                    }[id]
+                  : title}
+              </b>
+              <small>
+                {labResult
+                  ? {
+                      png: 'PNG · selected recorded epoch and visible layers',
+                      json: 'JSON · immutable configuration and full output',
+                      report: 'HTML · actual experiment metrics · print as PDF',
+                      csv: 'CSV · every attempted estimator epoch, including failures',
+                    }[id]
+                  : detail}
+              </small>
             </span>
             <span className="format-radio" />
           </button>
         ))}
       </div>
+      {labResult && (
+        <p className="field-caption">
+          Exporting scientific experiment {labResult.id}. Metrics and samples come from its recorded
+          outputs.
+        </p>
+      )}
       {snapshot && (
         <div className="export-snapshot">
           <span>

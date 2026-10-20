@@ -1,5 +1,6 @@
 export * from './model';
 export * from './themes';
+export * from './laboratory';
 export * from './geometry';
 export * from './mobility';
 export * from './solver';
