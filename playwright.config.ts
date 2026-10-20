@@ -37,5 +37,10 @@ export default defineConfig({
       },
     },
   ],
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: { browserName: 'chromium', launchOptions: { args: ['--enable-unsafe-swiftshader'] } },
+    },
+  ],
 });

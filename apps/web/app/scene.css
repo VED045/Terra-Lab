@@ -1,0 +1,318 @@
+.workspace-view-switch {
+  display: inline-flex;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+.workspace-view-switch button {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 3px;
+}
+.workspace-view-switch button[aria-pressed='true'] {
+  background: var(--cyan-dim);
+  color: var(--cyan);
+}
+.network3d {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 270px;
+  flex-direction: column;
+  background: var(--canvas);
+  color: var(--text);
+  overflow: hidden;
+}
+.scene-toolbar {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  z-index: 3;
+}
+.scene-camera-buttons,
+.scene-edit-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.scene-edit-buttons {
+  margin-top: 6px;
+}
+.scene-toolbar .button {
+  font-size: 10px;
+  padding: 5px 7px;
+  min-height: 26px;
+  height: auto;
+}
+.scene-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.scene-toolbar select {
+  background: var(--canvas);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 5px;
+  max-width: 140px;
+}
+.scene-toolbar summary {
+  font-size: 11px;
+  cursor: pointer;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.scene-options {
+  position: relative;
+}
+.scene-options-panel {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 20;
+  width: 260px;
+  max-height: 360px;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  border-radius: 5px;
+}
+.scene-options-panel > label {
+  margin-bottom: 10px;
+  justify-content: space-between;
+}
+.scene-options-panel fieldset {
+  border: 1px solid var(--border);
+  padding: 8px;
+}
+.scene-options-panel .check-row {
+  justify-content: flex-start;
+  margin: 6px 0;
+}
+.scene-add-menu {
+  display: flex;
+  gap: 5px;
+  padding: 8px;
+  background: var(--panel);
+  position: absolute;
+  z-index: 10;
+  border: 1px solid var(--border);
+}
+.scene-contract {
+  font-size: 10px;
+  line-height: 1.6;
+  padding: 5px 10px;
+  color: var(--muted);
+  background: var(--panel-alt);
+}
+.scene-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 180px;
+}
+.scene-viewport > div:first-child {
+  position: absolute !important;
+  inset: 0;
+}
+.scene-label {
+  font-size: 11px;
+  white-space: nowrap;
+  line-height: 1.4;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 5px;
+  pointer-events: auto;
+  user-select: none;
+}
+.scene-label.selected {
+  border-color: var(--cyan);
+}
+.scene-axis {
+  font-size: 10px;
+  white-space: nowrap;
+  color: var(--muted);
+  pointer-events: none;
+}
+.scene-legend {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  right: 125px;
+  font-size: 9px;
+  line-height: 1.6;
+  color: var(--muted);
+  pointer-events: none;
+}
+.scene-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  flex-direction: column;
+  padding: 30px;
+  text-align: center;
+  background: var(--canvas);
+  z-index: 2;
+}
+.scene-state p {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 380px;
+  line-height: 1.6;
+}
+.scene-empty {
+  position: absolute;
+  top: 35%;
+  left: 10%;
+  right: 10%;
+  text-align: center;
+  pointer-events: none;
+  color: var(--muted);
+}
+.scene-footer,
+.scene-selection {
+  font:
+    10px/1.6 Consolas,
+    monospace;
+  padding: 5px 10px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+.scene-footer {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.scene-recorded {
+  max-height: 150px;
+  overflow: auto;
+  padding: 8px 10px;
+  font-size: 11px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+.scene-recorded table {
+  width: 100%;
+  font:
+    10px/1.5 Consolas,
+    monospace;
+  text-align: left;
+}
+.scene-recorded th,
+.scene-recorded td {
+  padding: 3px 6px;
+}
+.scene-recorded summary {
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.scene-recorded label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 8px 0;
+}
+.scene-recorded input {
+  flex: 1;
+}
+.inspector-readonly {
+  display: contents;
+}
+.network-logo {
+  display: block;
+  flex-shrink: 0;
+}
+.wordmark .network-logo {
+  display: none;
+}
+.research-page-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+@media (max-width: 699px) {
+  .scene-toolbar {
+    padding: 6px;
+  }
+  .scene-toolbar .button {
+    padding: 5px;
+    font-size: 9px;
+  }
+  .scene-options-panel {
+    right: auto;
+    left: 0;
+  }
+  .scene-contract {
+    font-size: 9px;
+  }
+  .scene-edit-buttons {
+    gap: 4px;
+  }
+  .scene-legend {
+    right: 100px;
+  }
+  .scene-footer {
+    font-size: 8px;
+  }
+  .workspace-view-switch button {
+    font-size: 10px;
+    padding: 4px 6px;
+  }
+  .network3d {
+    min-height: 320px;
+  }
+  .scene-recorded {
+    max-height: 100px;
+  }
+}
+
+.scene-render-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.scene-label-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.scene-projected-label {
+  position: absolute;
+  transform: translate(-50%, -110%);
+}
+.scene-label-overlay button {
+  pointer-events: auto;
+}
+
+.network3d {
+  overflow: auto;
+}
+.scene-viewport {
+  flex-shrink: 0;
+  min-height: 200px;
+}
+.scene-recorded {
+  flex-shrink: 0;
+}
+.scene-toolbar,
+.scene-footer,
+.scene-selection,
+.scene-contract {
+  flex-shrink: 0;
+}

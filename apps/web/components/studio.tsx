@@ -7,6 +7,7 @@ import {
   QueryClient,
   QueryClientProvider,
   useMutation,
+  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import * as Tooltip from '@radix-ui/react-tooltip';
@@ -74,6 +75,9 @@ import Inspector from './inspector';
 import { SettingsDialog } from './settings-dialog';
 import { AccountDialog } from './project-dialogs';
 import { ResearchDashboard } from './research-dashboard';
+import { NetworkLogo } from './network-logo';
+import { useSceneView } from '@/lib/scene-view';
+import { workspaceIndex } from '@/lib/research';
 import { SignalDialog } from './signal-dialog';
 import { ShareDialog } from './share-dialog';
 import { LaboratoryDialog } from './laboratory-dialog';
@@ -85,6 +89,14 @@ import { Tool } from './ui/tool';
 const ScientificChart = dynamic(() => import('./scientific-chart'), {
   ssr: false,
   loading: () => <div className="chart-loading">Loading scientific chart…</div>,
+});
+const Network3D = dynamic(() => import('./network-3d'), {
+  ssr: false,
+  loading: () => (
+    <div className="scene-state" role="status">
+      Loading 3D workspace…
+    </div>
+  ),
 });
 type WorkspacePage = 'auto' | 'studio' | 'projects';
 export default function Studio({ workspace = 'auto' }: { workspace?: WorkspacePage }) {
@@ -105,6 +117,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
   const [demoMode, setDemoMode] = useState(false);
   const signedInBefore = useRef(false);
   const s = useStudio();
+  const sceneView = useSceneView();
   const { project, selected, time, playing, dirty, logs, edit, log } = s;
   const speed = project.settings.speedMultiplier;
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -128,6 +141,22 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
   const [hydrated, setHydrated] = useState(false);
   const mounted = useRef(false);
   const qc = useQueryClient();
+  const sceneAccess = useQuery({
+    queryKey: ['projects', auth.email],
+    queryFn: workspaceIndex,
+    enabled:
+      sceneView.mode === '3d' && Boolean(project.cloudVersion) && auth.status === 'signed-in',
+    staleTime: 0,
+  });
+  const sceneRole = sceneAccess.data?.projects.find((p) => p.id === project.id)?.role;
+  const sceneEditable =
+    !project.cloudVersion ||
+    (auth.status === 'signed-in' &&
+      !sceneAccess.isError &&
+      (sceneRole === 'owner' || sceneRole === 'editor'));
+  useEffect(() => {
+    if (sceneView.mode === '3d') useSceneView.getState().set({ editable: sceneEditable });
+  }, [sceneEditable, sceneView.mode, project.id, project.cloudVersion]);
   const saveRef = useRef(false);
   const save = useMutation({
     mutationFn: saveProject,
@@ -144,6 +173,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
   const saveAsync = save.mutateAsync;
   const saveCurrent = useCallback(
     async (manual = false) => {
+      if (useSceneView.getState().mode === '3d' && !useSceneView.getState().editable) return;
       if (saveRef.current) return;
       saveRef.current = true;
       try {
@@ -412,7 +442,10 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
       <main className={`research-page theme-${project.canvas.theme}`}>
         <header className="research-page-header">
           <div>
-            <span className="eyebrow">TERRALAB</span>
+            <div className="research-page-brand">
+              <NetworkLogo size={38} />
+              <span className="eyebrow">TERRALAB</span>
+            </div>
             <h1>Research workspace</h1>
             <p>Your projects, experiments, teams and shared research.</p>
           </div>
@@ -453,11 +486,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
     >
       <nav className="navigation-rail" aria-label="Main navigation">
         <button className="brand-mark" aria-label="TerraLab home" onClick={openProjects}>
-          <svg viewBox="0 0 30 30">
-            <path d="M15 3 27 24H3Z" fill="none" stroke="currentColor" strokeWidth="2" />
-            <path d="M15 11 23 24H7Z" fill="currentColor" />
-            <path d="M15 3v8" stroke="currentColor" />
-          </svg>
+          <NetworkLogo size={32} />
         </button>
         <div className="rail-top">
           <Tool label="Network studio" active onClick={() => setProjectsOpen(false)}>
@@ -540,7 +569,11 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
             </>
           )}
         </span>
-        <Button size="sm" onClick={() => void saveCurrent(true)} disabled={save.isPending}>
+        <Button
+          size="sm"
+          onClick={() => void saveCurrent(true)}
+          disabled={save.isPending || (sceneView.mode === '3d' && !sceneEditable)}
+        >
           <Save size={14} />
           Save project
         </Button>
@@ -554,6 +587,20 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
         </button>
       </header>
       <div className="workspace-command">
+        <div className="workspace-view-switch" role="group" aria-label="Workspace dimension">
+          <button
+            aria-pressed={sceneView.mode === '2d'}
+            onClick={() => sceneView.set({ mode: '2d' })}
+          >
+            2D
+          </button>
+          <button
+            aria-pressed={sceneView.mode === '3d'}
+            onClick={() => sceneView.set({ mode: '3d', editable: sceneEditable })}
+          >
+            3D
+          </button>
+        </div>
         <div className="breadcrumbs">
           <span>Workspace</span>
           <ChevronRight size={12} />
@@ -730,7 +777,11 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
           </div>
         </aside>
         <div className="center-workspace">
-          <NetworkCanvas verifiedSolution={apiResult} fitOnLoad={demoMode} />
+          {sceneView.mode === '2d' ? (
+            <NetworkCanvas verifiedSolution={apiResult} fitOnLoad={demoMode} />
+          ) : (
+            <Network3D verifiedSolution={apiResult} />
+          )}
           <section
             className={`simulation-panel ${bottomOpen ? '' : 'collapsed'}`}
             aria-label="Simulation and log panel"
@@ -995,7 +1046,13 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
               ))}
           </section>
         </div>
-        <Inspector verifiedSolution={apiResult} />
+        {sceneView.mode === '3d' && !sceneEditable ? (
+          <fieldset disabled className="inspector-readonly">
+            <Inspector verifiedSolution={apiResult} />
+          </fieldset>
+        ) : (
+          <Inspector verifiedSolution={apiResult} />
+        )}
       </div>
       <footer className="statusbar">
         <span>

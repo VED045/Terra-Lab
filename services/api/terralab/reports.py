@@ -145,6 +145,10 @@ def pdf(report:Report):
     # Paragraph wrapping avoids clipped long JSON lines; XML escaping prevents report injection.
     text=json.dumps(report.request.model_dump(),ensure_ascii=True)
     story.append(Paragraph(escape(text),styles['Code']))
-    def footer(canvas,doc):canvas.setFont('Helvetica',8);canvas.drawString(36,22,'TerraLab | simulated research data | configuration-linked report');canvas.drawRightString(A4[0]-36,22,str(doc.page))
+    def footer(canvas,doc):
+        canvas.drawImage(str(Path(__file__).parent/'assets'/'network-tower.png'),36,17,width=18,height=18,mask='auto')
+        canvas.setFont('Helvetica',8)
+        canvas.drawString(60,22,'TerraLab | simulated research data | configuration-linked report')
+        canvas.drawRightString(A4[0]-36,22,str(doc.page))
     SimpleDocTemplate(output,pagesize=A4,rightMargin=36,leftMargin=36,topMargin=36,bottomMargin=36,title=report.request.project.get('name','TerraLab experiment'),author='TerraLab').build(story,onFirstPage=footer,onLaterPages=footer)
     return output.getvalue()

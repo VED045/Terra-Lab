@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useSceneView, sceneMutationAllowed } from './scene-view';
 import {
   createTemplate,
   newObject,
@@ -51,6 +52,7 @@ export const useStudio = create<State>((set, get) => ({
   ],
   edit: (fn, history = true) =>
     set((s) => {
+      if (!sceneMutationAllowed()) return s;
       const p = clone(s.project);
       fn(p);
       const result = projectSchema.safeParse(p);
@@ -75,6 +77,8 @@ export const useStudio = create<State>((set, get) => ({
     }),
   load: (p) => {
     const parsed = projectSchema.parse(p);
+    if (useSceneView.getState().mode === '3d')
+      useSceneView.getState().set({ editable: !p.cloudVersion });
     set({
       project: clone(parsed),
       selected: [],
@@ -108,6 +112,7 @@ export const useStudio = create<State>((set, get) => ({
       if (i >= 0) p.objects[i] = { ...p.objects[i], ...patch } as NetworkObject;
     }),
   remove: () => {
+    if (!sceneMutationAllowed()) return;
     const s = get();
     s.edit((p) => {
       p.objects = p.objects.filter((o) => !s.selected.includes(o.id));
@@ -120,6 +125,7 @@ export const useStudio = create<State>((set, get) => ({
     set({ selected: [] });
   },
   duplicate: () => {
+    if (!sceneMutationAllowed()) return;
     const s = get();
     const ids: string[] = [];
     s.edit((p) => {
@@ -140,6 +146,7 @@ export const useStudio = create<State>((set, get) => ({
     set({ selected: ids });
   },
   undo: () =>
+    sceneMutationAllowed() &&
     set((s) =>
       s.past.length
         ? {
@@ -157,6 +164,7 @@ export const useStudio = create<State>((set, get) => ({
         : s,
     ),
   redo: () =>
+    sceneMutationAllowed() &&
     set((s) =>
       s.future.length
         ? {

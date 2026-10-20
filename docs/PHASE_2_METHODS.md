@@ -98,3 +98,7 @@ No particle filter, collaboration, advanced multiband CSI, RF waveform simulatio
 ## Phase 4A numerical correction
 
 The acceptance matrix exercises all 62 declared model/estimator pairs at a noiseless known position with the existing `<1e-5 m` tolerance. AOA/Huber originally terminated 0.000263471965 m away at the covariance floor. Angular Huber/Soft-L1 now also try an observation-only WLS initialization; all candidates still minimize the same robust loss and the lowest converged cost wins. No ground truth, measurement equation, covariance, failure filtering or tolerance was changed. Existing stored outputs remain immutable; implementation commit/file hashes distinguish the correction. Broader robust-performance guarantees are not claimed.
+
+## Phase 4B: visualization boundary
+
+An optional Three.js scene displays the same canonical network and frozen XY results. This is 3D visualization, not 3D positioning. Domain X/Y remain east/north metres; rendering maps them to Three X/-Z, with scene Y used only for labelled presentation or receiver altitude metadata. Unknown anchor/path Z is not added to stored data. Building footprint height remains horizontal; optional extrusion is illustrative and does not alter obstruction or RF models. Recorded truth/estimate positions, residuals, rejected/missing/NLOS links and existing XY ellipses use the original values. No slant-range model, vertical estimate, covariance ellipsoid, propagation volume or solver change is introduced. See docs/3d/COORDINATE_MODEL.md.

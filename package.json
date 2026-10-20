@@ -21,7 +21,9 @@
     "worker": "node scripts/python.mjs scripts/worker.py",
     "test:worker": "node scripts/test-cloud-worker.mjs",
     "test:combined": "node scripts/test-cloud-worker.mjs --combined",
-    "test:e2e:auth": "node scripts/test-auth-browser.mjs"
+    "test:e2e:auth": "node scripts/test-auth-browser.mjs",
+    "brand:generate": "node scripts/generate-brand-assets.mjs",
+    "test:production": "node scripts/test-production-scene.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",
