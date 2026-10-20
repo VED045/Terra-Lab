@@ -73,6 +73,8 @@ export const projectSchema = z
     updatedAt: z.string().datetime(),
     archived: z.boolean(),
     laboratory: labConfigSchema.optional(),
+    cloudVersion: z.number().int().positive().optional(),
+    cloudOwnerId: z.string().uuid().optional(),
     objects: z
       .array(objectSchema)
       .max(500)

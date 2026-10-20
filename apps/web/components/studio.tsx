@@ -70,7 +70,9 @@ import { observeAuthSession, type AuthState } from '@/lib/auth-session';
 import NetworkCanvas from './network-canvas';
 import Inspector from './inspector';
 import { SettingsDialog } from './settings-dialog';
-import { ProjectsDialog, AccountDialog } from './project-dialogs';
+import { AccountDialog } from './project-dialogs';
+import { ResearchDashboard } from './research-dashboard';
+import { SignalDialog } from './signal-dialog';
 import { ShareDialog } from './share-dialog';
 import { LaboratoryDialog } from './laboratory-dialog';
 import { LaboratoryPreviewFacts } from './laboratory-preview';
@@ -106,6 +108,7 @@ function Workspace() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [laboratoryOpen, setLaboratoryOpen] = useState(false);
+  const [signalOpen, setSignalOpen] = useState(false);
   const labView = useLabView();
   const labRecord = labView.result?.records[labView.index];
   const [helpOpen, setHelpOpen] = useState(false);
@@ -124,11 +127,7 @@ function Workspace() {
     mutationFn: saveProject,
     onSuccess: (p, original) => {
       const state = useStudio.getState();
-      if (
-        state.project.id === original.id &&
-        JSON.stringify(state.project) === JSON.stringify(original)
-      )
-        state.markSaved(p.updatedAt, p.id);
+      state.acceptSave(original, p);
       void qc.invalidateQueries({ queryKey: ['projects'] });
     },
     onError: (e) => {
@@ -158,6 +157,7 @@ function Workspace() {
     if (!mounted.current) {
       mounted.current = true;
       setHydrated(true);
+      if (new URLSearchParams(location.hash.slice(1)).has('invite')) setProjectsOpen(true);
       try {
         const last = localStorage.getItem('terralab.active.v1');
         if (last) {
@@ -185,10 +185,10 @@ function Workspace() {
     } catch {
       setNotice('Browser storage is full. Export your project JSON.');
     }
-    if (!dirty) return;
+    if (!dirty || laboratoryOpen || projectsOpen) return;
     const id = setTimeout(() => void saveCurrent(), 1500);
     return () => clearTimeout(id);
-  }, [project, dirty, hydrated, saveCurrent]);
+  }, [project, dirty, hydrated, saveCurrent, laboratoryOpen, projectsOpen]);
   useEffect(() => {
     if (!notice) return;
     const id = setTimeout(() => setNotice(''), 6000);
@@ -234,6 +234,7 @@ function Workspace() {
         shareOpen ||
         settingsOpen ||
         laboratoryOpen ||
+        signalOpen ||
         helpOpen
       )
         return;
@@ -286,7 +287,16 @@ function Workspace() {
     };
     window.addEventListener('keydown', fn);
     return () => window.removeEventListener('keydown', fn);
-  }, [projectsOpen, accountOpen, shareOpen, settingsOpen, laboratoryOpen, helpOpen, saveCurrent]);
+  }, [
+    projectsOpen,
+    accountOpen,
+    shareOpen,
+    settingsOpen,
+    laboratoryOpen,
+    signalOpen,
+    helpOpen,
+    saveCurrent,
+  ]);
   const receivers = project.objects.filter(
     (o): o is Receiver => o.kind === 'receiver' && o.enabled,
   );
@@ -479,6 +489,16 @@ function Workspace() {
           )}
         </span>
         <div className="command-actions">
+          <Button
+            size="sm"
+            aria-label="Multiband signal laboratory"
+            onClick={() => {
+              s.play(false);
+              setSignalOpen(true);
+            }}
+          >
+            CSI lab
+          </Button>
           <Button
             size="sm"
             aria-label="Scientific laboratory"
@@ -913,9 +933,10 @@ function Workspace() {
           <kbd>?</kbd> Help
         </span>
       </footer>
-      <ProjectsDialog open={projectsOpen} onOpenChange={setProjectsOpen} auth={auth} />
+      <ResearchDashboard open={projectsOpen} onOpenChange={setProjectsOpen} auth={auth} />
       <ShareDialog open={shareOpen} onOpenChange={setShareOpen} />
       <LaboratoryDialog open={laboratoryOpen} onOpenChange={setLaboratoryOpen} />
+      <SignalDialog open={signalOpen} onOpenChange={setSignalOpen} />
       <SettingsDialog
         auth={auth}
         open={settingsOpen}

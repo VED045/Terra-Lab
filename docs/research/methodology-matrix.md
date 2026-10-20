@@ -78,3 +78,12 @@ Add new tagged observation types and separate validation/solvers. Preserve Phase
 | Scientific visualization and exports | Toggleable truth/estimate/error/range/TDOA/AOA/link/rejection/uncertainty/coverage/geometry/heatmap layers; stored-output charts and reports | Browser rendering, theme/responsive behavior, downloads and signed-in cloud Storage need manual acceptance because the user browser was policy-blocked. No new browser pass is claimed. |
 
 Primary algorithm references: [SciPy nonlinear least squares](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html), [Welch and Bishop EKF](https://www.cs.unc.edu/~welch/media/pdf/kalman_intro.pdf), [Wan and van der Merwe UKF](https://groups.seas.harvard.edu/courses/cs281/papers/unscented.pdf). Research-paper provenance in the original source inventory remains unchanged; implementing a synthetic equation does not reproduce a paper's RF hardware or published accuracy.
+
+
+## Phase 3 research/persistence extension
+
+The validated Phase 2 numerical engine and model version 0.2.0 remain unchanged. Configuration/seed/software/metrics/raw observations/failures/runtime are linked in immutable worker-published runs. Transactional revision RPCs and current project/team RLS protect persisted networks and results; publication files are append-only derivatives, not edits to the original data. Compare exact configurations before attributing a difference to one estimator or parameter.
+
+The separate synthetic CSI module is experimental. Its conventional and inverse-noise-weighted profile scans are not Kazaz MBWDE. Grid MUSIC requires independent path snapshot gains, known K and noise powers; single-band Hankel ESPRIT requires uniform spacing and rank. The original author manuscript's full stacked-data weighting, initialization, data extension and CRB are not reproduced. See ADVANCED_SIGNALS.md for the equations implemented, assumptions, actual example and remaining research steps.
+
+Database authorization was exercised in actual PostgreSQL with minimal service fixtures; the real API/worker integration uses local Auth/Storage protocol fixtures. Neither proves hosted token issuance or Storage HTTP isolation. Browser/live cloud/deployment acceptance remains separately documented. No synthetic result is presented as a measured radio performance claim.

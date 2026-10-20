@@ -1,0 +1,13 @@
+.git
+.env*
+**/.env*
+node_modules
+**/node_modules
+.venv
+**/__pycache__
+.terralab
+.pytest-tmp
+apps
+docs
+tests
+test-results

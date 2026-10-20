@@ -1,0 +1,215 @@
+.research-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 18px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.research-tabs button {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  background: var(--panel);
+}
+.research-tabs button.active {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: var(--canvas);
+}
+.research-toolbar,
+.research-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+}
+.research-toolbar input {
+  flex: 1;
+  min-width: 180px;
+}
+.research-toolbar input,
+.research-toolbar select,
+.research-inline input,
+.research-inline select,
+.research-link input,
+.publication-options input {
+  background: var(--canvas);
+  color: var(--text);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12px;
+  min-width: 0;
+}
+.research-inline input {
+  flex: 1;
+  min-width: 180px;
+}
+.research-link {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.research-link input {
+  width: 100%;
+}
+.research-project {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.research-project .project-open {
+  display: grid;
+  gap: 5px;
+  min-width: 200px;
+  flex: 1;
+  text-align: left;
+}
+.research-project small,
+.research-starters small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.research-project > button:first-child {
+  font-size: 18px;
+  color: var(--cyan);
+}
+.research-detail {
+  padding: 18px;
+  margin: 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--canvas);
+}
+.research-detail h3 {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+.research-detail h4 {
+  font-size: 13px;
+  margin: 20px 0 8px;
+}
+.research-detail p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.research-detail table {
+  width: 100%;
+  font-size: 11px;
+  border-collapse: collapse;
+}
+.research-detail td,
+.research-detail th {
+  text-align: left;
+  padding: 8px;
+  border: 1px solid var(--border);
+  max-width: 300px;
+  overflow-wrap: anywhere;
+}
+.research-starters {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 14px 0;
+}
+.research-starters button {
+  text-align: left;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.research-starters b {
+  font-size: 13px;
+  display: block;
+  margin-bottom: 8px;
+}
+.publication-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+.publication-options label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.publication-preview {
+  background: white;
+  border-radius: 6px;
+  padding: 8px;
+  margin: 12px 0;
+  overflow: auto;
+}
+.publication-preview svg {
+  width: 100%;
+  min-width: 450px;
+  height: auto;
+}
+.signal-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.signal-controls label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.signal-controls input,
+.signal-controls select,
+.signal-controls textarea {
+  width: 100%;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  padding: 8px;
+  color: var(--text);
+  border-radius: 5px;
+}
+.signal-controls .span-all {
+  grid-column: 1/-1;
+}
+.signal-controls textarea {
+  min-height: 100px;
+  font: 12px monospace;
+}
+.signal-status {
+  font-size: 12px;
+  line-height: 1.8;
+  padding: 12px;
+  border-left: 3px solid var(--cyan);
+  background: var(--canvas);
+}
+@media (max-width: 720px) {
+  .research-starters {
+    grid-template-columns: 1fr 1fr;
+  }
+  .publication-options,
+  .signal-controls {
+    grid-template-columns: 1fr;
+  }
+  .research-project .project-open {
+    min-width: 150px;
+  }
+  .research-project .button {
+    padding: 6px;
+  }
+  .research-detail {
+    padding: 12px;
+  }
+}

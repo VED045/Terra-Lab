@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { boundedText } from '../../../lib/request-body';
 const requestSchema = z.object({
   type: z.literal('calibrated_range'),
   units: z.literal('m'),
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   try {
     const length = Number(request.headers.get('content-length') ?? 0);
     if (length > 200000) return NextResponse.json({ detail: 'Request too large' }, { status: 413 });
-    const payload = requestSchema.parse(await request.json());
+    const payload = requestSchema.parse(JSON.parse(await boundedText(request, 200000)));
     const response = await fetch(
       `${process.env.SIMULATION_API_URL ?? 'http://127.0.0.1:8000'}/solve`,
       {
@@ -35,6 +36,8 @@ export async function POST(request: Request) {
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (e) {
+    if (e instanceof RangeError)
+      return NextResponse.json({ detail: 'Request too large' }, { status: 413 });
     if (e instanceof SyntaxError)
       return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
     if (e instanceof z.ZodError)

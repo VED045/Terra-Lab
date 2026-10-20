@@ -53,7 +53,12 @@ export function captureNetworkSvg(): string {
   clone.setAttribute('height', String(source.clientHeight));
   return new XMLSerializer().serializeToString(clone);
 }
-export async function networkPng(svg: string, project: Project, time: number): Promise<Blob> {
+export async function networkPng(
+  svg: string,
+  project: Project,
+  time: number,
+  caption?: string,
+): Promise<Blob> {
   const workspace = document.querySelector('.studio');
   const style = workspace ? getComputedStyle(workspace) : null;
   const background = style?.getPropertyValue('--canvas').trim() || '#0c1621';
@@ -87,7 +92,7 @@ export async function networkPng(svg: string, project: Project, time: number): P
     context.fillStyle = muted;
     context.font = '11px Arial';
     context.fillText(
-      `TERRALAB · ${time.toFixed(1)} s · calibrated 2D ranges · seed ${project.settings.seed}`,
+      `TERRALAB · ${time.toFixed(1)} s · ${caption ?? `calibrated 2D ranges · seed ${project.settings.seed}`}`,
       20,
       51,
       width - 40,

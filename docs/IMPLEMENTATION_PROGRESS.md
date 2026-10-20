@@ -1,6 +1,6 @@
-# Phase 1 implementation progress
+# TerraLab implementation progress
 
-Status: **Phase 2 implementation and automated scientific/API validation delivered; browser/cloud acceptance pending**. Current Desktop checks: 126 frontend/shared unit tests, 85 Python tests, one separately enabled real Next-handler/FastAPI integration test, strict TypeScript and production build pass. Two actual six-anchor/three-location benchmarks each completed 3,600 paired estimator epochs. Full browser interaction/visual export/authenticated cloud acceptance remains unverified because access to the user tab was policy-blocked. See PHASE_2_COMPLETION_REPORT.md and PHASE_2_METHODS.md. The Phase 2 acceptance gate is not represented as fully closed; Phase 3 has not started.
+Status: **Phase 3 implementation and local automated validation delivered; hosted activation/browser acceptance pending.** The user explicitly approved Phase 2 and requested Phase 3 on 20 October 2026. Positioning model 0.2.0 is preserved. Hosted migrations/deployment, live Auth/Storage and browser acceptance have not been performed; current evidence is recorded in PHASE_3_REPORT.md.
 
 Delivery directory: `C:\Users\Ved\Desktop\TerraLab`.
 Date: 20 October 2026.
@@ -82,3 +82,14 @@ The actual clean and contaminated benchmarks are committed under `docs/examples/
 Resolved scientific/verification issues include stable TDOA common-mode covariance cancellation, explicit handling of undefined coincident-anchor AOA, no-fix accounting through filter update gaps, race-free job snapshots/checkpoints, Windows pytest temporary ACLs, and scientific preview/export labels that cannot mix Phase 1 metrics with Phase 2 images.
 
 Manual UI/theme/responsive checks, screenshot/print rendering, signed-in Storage round-trips and two-user cloud isolation remain required. See the manual checklist in PHASE_2_COMPLETION_REPORT.md. Stop after Phase 2 and wait for explicit Phase 3 approval; no collaboration, particle filter, advanced multiband CSI or waveform processing was implemented.
+
+
+## Phase 3 — 20 October 2026
+
+Added a research workspace with owned/recent/shared/starred/archived networks, immutable runs, templates, teams and nested configuration comparison. Cloud saves now use locked expected-version RPCs and append revisions; undo/redo and saves made during edits preserve the current version metadata. Restores create another revision; conflicts retain working edits and offer reload/save-copy recovery.
+
+Migrations 002/003 introduce roles, invitation hashes/expiry/revocation, team/direct access, immutable research history, private result/artifact policies and append-only derivative metadata. Permissions are enforced in PostgreSQL, including direct RPC attempts. The worker uses a persistent leased queue, safe idempotency, bounded retries, cancellation and atomic publication. The web/API never use a service-role client. Large results are fetched directly from private Storage with checked byte count/hash. Local mode remains available and is rejected for production startup.
+
+Added full-data CDF SVG/PNG exports, generated vector PDF reports, configuration/metrics/environment reproducibility manifests and optional checked artifact history. The experimental CSI module supplies actual synthetic channel data and conventional/weighted scans, MUSIC and restricted single-band ESPRIT. It does not claim full Kazaz MBWDE, CRB or hardware reproduction.
+
+Provided Docker/Render/Vercel/Supabase deployment configuration, safe seed, exact setup and verification guides, architecture, API/database/user/troubleshooting/reproduction documentation. No provider service, hosted schema or authenticated user session was modified. Browser automation remained blocked; no new visual/browser pass is claimed. Final executed checks and known gaps are in PHASE_3_REPORT.md. Stop at Phase 3.

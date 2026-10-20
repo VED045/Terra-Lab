@@ -16,20 +16,33 @@ export type ExperimentResult = {
   records: LabRecord[];
   frames: Record<string, LabFrame>;
   summaries: LabSummary[];
+  artifactUnavailable?: boolean;
 };
 export async function laboratoryRequest(
   path: string,
   method = 'GET',
   body?: unknown,
+  idempotencyKey?: string,
 ): Promise<ExperimentResult & { id: string }> {
+  const db = supabase();
+  const session = db ? await db.auth.getSession() : null;
+  const token = session?.data.session?.access_token;
   const response = await fetch(`/api/laboratory${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(method === 'POST' ? { 'Idempotency-Key': idempotencyKey ?? crypto.randomUUID() } : {}),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
   const result = await response.json();
   if (!response.ok)
     throw Error(typeof result.detail === 'string' ? result.detail : JSON.stringify(result.detail));
+  if (result.manifest) {
+    const { downloadResearchResult } = await import('./research');
+    return downloadResearchResult(result.manifest, result.id);
+  }
   return result;
 }
 function openDatabase(): Promise<IDBDatabase> {
@@ -160,7 +173,7 @@ const recordSchema = z
     sweepValue: z.number().finite(),
     truth: pair,
     position: pair.nullable(),
-    errorM: nullable,
+    errorM: z.number().finite().nonnegative().nullable(),
     failure: z.string().nullable(),
     runtimeMs: z.number().finite().nonnegative(),
     condition: nullable,
@@ -308,7 +321,10 @@ export function experimentCsv(result: ExperimentResult): string {
     'normalized_residual_rms',
     'observation_hash',
   ];
-  const cell = (v: unknown) => `"${String(v ?? '').replaceAll('"', '""')}"`;
+  const cell = (v: unknown) => {
+    const text = typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? `'${v}` : String(v ?? '');
+    return `"${text.replaceAll('"', '""')}"`;
+  };
   return [
     header.join(','),
     ...result.records.map((r) =>

@@ -15,6 +15,7 @@ import { experimentCsv } from '@/lib/laboratory';
 import { buildExperimentReport } from '@/lib/lab-report';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
+import { PublicationDialog } from './publication-dialog';
 const formats = [
   {
     id: 'png',
@@ -50,6 +51,7 @@ export function ShareDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { result: labResult, index: labIndex } = useLabView();
+  const [publicationOpen, setPublicationOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<SimulationSnapshot | null>(null),
     [format, setFormat] = useState<Format>('png');
   const [file, setFile] = useState<File | null>(null),
@@ -102,7 +104,14 @@ export function ShareDialog({
             { type: 'text/html' },
           );
         return new File(
-          [await networkPng(captureNetworkSvg(), labResult.request.project, record?.time ?? 0)],
+          [
+            await networkPng(
+              captureNetworkSvg(),
+              labResult.request.project,
+              record?.time ?? 0,
+              `recorded ${labResult.request.config.measurement} · ${record?.estimator ?? 'no epoch'} · seed ${labResult.request.config.seed}`,
+            ),
+          ],
           `${stem}-experiment.png`,
           { type: 'image/png' },
         );
@@ -230,6 +239,9 @@ export function ShareDialog({
         </p>
       )}
       <div className="export-actions">
+        {labResult && (
+          <Button onClick={() => setPublicationOpen(true)}>Publication SVG / PNG / PDF</Button>
+        )}
         <Button
           variant="default"
           disabled={busy || !file}
@@ -255,6 +267,13 @@ export function ShareDialog({
         Exports contain the project configuration and simulated results, without account details or
         credentials. Cloud projects remain private.
       </p>
+      {labResult && (
+        <PublicationDialog
+          result={labResult}
+          open={publicationOpen}
+          onOpenChange={setPublicationOpen}
+        />
+      )}
     </Dialog>
   );
 }

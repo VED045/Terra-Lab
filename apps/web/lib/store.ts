@@ -32,7 +32,8 @@ type State = {
   setTime: (t: number) => void;
   play: (v: boolean) => void;
   setSpeed: (v: number) => void;
-  markSaved: (at: string, id?: string) => void;
+  markSaved: (at: string, id?: string, cloudVersion?: number, cloudOwnerId?: string) => void;
+  acceptSave: (original: Project, saved: Project) => void;
   log: (text: string, level?: 'info' | 'warn') => void;
 };
 const clone = <T>(p: T): T => structuredClone(p);
@@ -142,7 +143,12 @@ export const useStudio = create<State>((set, get) => ({
     set((s) =>
       s.past.length
         ? {
-            project: s.past.at(-1)!,
+            project: {
+              ...s.past.at(-1)!,
+              cloudVersion: s.project.cloudVersion,
+              cloudOwnerId: s.project.cloudOwnerId,
+              updatedAt: s.project.updatedAt,
+            },
             past: s.past.slice(0, -1),
             future: [s.project, ...s.future],
             dirty: true,
@@ -154,7 +160,12 @@ export const useStudio = create<State>((set, get) => ({
     set((s) =>
       s.future.length
         ? {
-            project: s.future[0],
+            project: {
+              ...s.future[0],
+              cloudVersion: s.project.cloudVersion,
+              cloudOwnerId: s.project.cloudOwnerId,
+              updatedAt: s.project.updatedAt,
+            },
             future: s.future.slice(1),
             past: [...s.past, s.project],
             dirty: true,
@@ -170,8 +181,25 @@ export const useStudio = create<State>((set, get) => ({
       p.settings.speedMultiplier = speed;
     });
   },
-  markSaved: (updatedAt, id) =>
-    set((s) => ({ project: { ...s.project, updatedAt, id: id ?? s.project.id }, dirty: false })),
+  markSaved: (updatedAt, id, cloudVersion, cloudOwnerId) =>
+    set((s) => ({
+      project: { ...s.project, updatedAt, id: id ?? s.project.id, cloudVersion, cloudOwnerId },
+      dirty: false,
+    })),
+  acceptSave: (original, saved) =>
+    set((s) =>
+      s.project.id !== original.id
+        ? {}
+        : {
+            project: {
+              ...s.project,
+              updatedAt: saved.updatedAt,
+              cloudVersion: saved.cloudVersion,
+              cloudOwnerId: saved.cloudOwnerId,
+            },
+            dirty: JSON.stringify(s.project) !== JSON.stringify(original),
+          },
+    ),
   log: (text, level = 'info') =>
     set((s) => ({ logs: [...s.logs.slice(-99), { time: formatTime(s.time), text, level }] })),
 }));

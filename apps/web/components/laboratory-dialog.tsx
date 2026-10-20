@@ -35,6 +35,8 @@ import { Button } from './ui/button';
 import { NumberField } from './ui/number-field';
 import { LaboratoryCharts, LaboratoryObservations, labFormat as fmt } from './laboratory-charts';
 import { LaboratoryObjectControls } from './laboratory-object-controls';
+import { PublicationDialog } from './publication-dialog';
+import { saveProject } from '@/lib/persistence';
 const terminal = (status: string) => !['queued', 'running'].includes(status);
 const activeKey = 'terralab.laboratory.active';
 function Parameter({
@@ -85,6 +87,7 @@ export function LaboratoryDialog({
   const view = useLabView();
   const [tab, setTab] = useState<'configure' | 'results' | 'archive'>('configure');
   const [result, setResult] = useState<ExperimentResult | null>(null);
+  const [publicationOpen, setPublicationOpen] = useState(false);
   const [active, setActive] = useState<string | null>(null);
   const [archive, setArchive] = useState<ExperimentResult[]>([]);
   const [index, setIndex] = useState(0),
@@ -127,6 +130,12 @@ export function LaboratoryDialog({
           try {
             localStorage.removeItem(activeKey);
           } catch {}
+          if (finished.artifactUnavailable) {
+            setFailure(
+              `Job ${finished.status}: ${finished.error ?? 'Result publication was interrupted'}. Progress and failure logs remain in the cloud job history; no complete result artifact was published.`,
+            );
+            return;
+          }
           try {
             const existing = await savedExperiments();
             if (!existing.some((r) => r.id === finished.id)) await saveExperiment(finished);
@@ -187,8 +196,35 @@ export function LaboratoryDialog({
       edit((p) => {
         p.laboratory = parsed;
       });
-      const snapshot = structuredClone(useStudio.getState().project);
-      const job = await laboratoryRequest('', 'POST', { project: snapshot, config: parsed });
+      const original = structuredClone(useStudio.getState().project);
+      let submission: {
+        key: string;
+        body: { project: typeof original; config: LabConfig };
+      } | null = null;
+      const fingerprint = (p: typeof original) =>
+        JSON.stringify({
+          ...p,
+          updatedAt: undefined,
+          cloudVersion: undefined,
+          cloudOwnerId: undefined,
+        });
+      try {
+        const pending = JSON.parse(localStorage.getItem('terralab.pending-submission') || 'null');
+        if (
+          pending?.body?.project &&
+          fingerprint(pending.body.project) === fingerprint(original) &&
+          JSON.stringify(pending.body.config) === JSON.stringify(parsed)
+        )
+          submission = pending;
+      } catch {}
+      if (!submission) {
+        const snapshot = await saveProject(original);
+        useStudio.getState().acceptSave(original, snapshot);
+        submission = { key: crypto.randomUUID(), body: { project: snapshot, config: parsed } };
+        localStorage.setItem('terralab.pending-submission', JSON.stringify(submission));
+      }
+      const job = await laboratoryRequest('', 'POST', submission.body, submission.key);
+      localStorage.removeItem('terralab.pending-submission');
       setResult(null);
       setActive(job.id);
       setTab('results');
@@ -703,6 +739,7 @@ export function LaboratoryDialog({
               )}
               {terminal(result.status) && (
                 <div className="lab-actions">
+                  <Button onClick={() => setPublicationOpen(true)}>Publication exports</Button>
                   <Button
                     onClick={() =>
                       downloadFile(
@@ -826,6 +863,13 @@ export function LaboratoryDialog({
             </button>
           ))}
         </>
+      )}
+      {result && terminal(result.status) && (
+        <PublicationDialog
+          result={result}
+          open={publicationOpen}
+          onOpenChange={setPublicationOpen}
+        />
       )}
     </Dialog>
   );

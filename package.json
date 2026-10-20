@@ -1,6 +1,6 @@
 {
   "name": "terralab",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "workspaces": [
     "apps/web",
@@ -16,9 +16,13 @@
     "test": "vitest run",
     "test:python": "node scripts/python.mjs -m pytest services/api/tests -q",
     "format": "prettier --write apps/web/app apps/web/components apps/web/lib packages/shared/src tests/e2e scripts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:database": "node scripts/test-database.mjs",
+    "worker": "node scripts/python.mjs scripts/worker.py",
+    "test:worker": "node scripts/test-cloud-worker.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "@playwright/test": "^1.58.0",
     "concurrently": "^9.2.0",
     "prettier": "^3.9.10",

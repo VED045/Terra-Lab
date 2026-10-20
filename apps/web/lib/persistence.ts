@@ -6,7 +6,7 @@ async function currentUser(db: SupabaseClient) {
   if (sessionError) throw sessionError;
   if (!session.session) return null;
   const { data, error } = await db.auth.getUser();
-  if (error) throw error;
+  if (error) throw Error(error.message);
   return data.user;
 }
 export function supabase() {
@@ -80,7 +80,7 @@ export async function listProjects(): Promise<Project[]> {
     .from('projects')
     .select('config')
     .order('updated_at', { ascending: false });
-  if (error) throw error;
+  if (error) throw Error(error.message);
   return (data ?? []).map((r) => deserializeProject(JSON.stringify(r.config)));
 }
 export async function saveProject(p: Project): Promise<Project> {
@@ -89,17 +89,12 @@ export async function saveProject(p: Project): Promise<Project> {
   if (db) {
     const user = await currentUser(db);
     if (user) {
-      const { error } = await db.from('projects').upsert({
-        id: saved.id,
-        owner_id: user.id,
-        name: saved.name,
-        archived: saved.archived,
-        schema_version: 1,
-        config: saved,
-        updated_at: saved.updatedAt,
+      const { data, error } = await db.rpc('save_research_project', {
+        p_config: saved,
+        p_expected: saved.cloudVersion ?? null,
       });
-      if (error) throw error;
-      return saved;
+      if (error) throw Error(error.message);
+      return deserializeProject(JSON.stringify(data));
     }
   }
   return localSave(localStorage, saved);
@@ -109,8 +104,8 @@ export async function deleteProject(id: string) {
   if (db) {
     const user = await currentUser(db);
     if (user) {
-      const { error } = await db.from('projects').delete().eq('id', id);
-      if (error) throw error;
+      const { error } = await db.rpc('delete_research_project', { p_id: id });
+      if (error) throw Error(error.message);
       return;
     }
   }
@@ -128,6 +123,6 @@ export async function uploadCloudSnapshot(p: Project) {
       new Blob([serializeProject(p)], { type: 'application/json' }),
       { upsert: true, contentType: 'application/json' },
     );
-  if (error) throw error;
+  if (error) throw Error(error.message);
   return p;
 }
