@@ -1,0 +1,33 @@
+{
+  "format": "terralab-controlled-studies-1",
+  "scope": "Synthetic horizontal positioning only; no hardware or genuine XYZ validation.",
+  "seeds": [11, 29, 47, 83, 109],
+  "base": {"measurement":"toa","estimators":["wls","huber"],"sweep":"none","trials":20,"duration":0,"sampleStep":1,"timingNs":2,"noiseM":0.1,"dropout":0,"nlosProbability":0,"outlierProbability":0},
+  "acceptance": {"noiselessMaxErrorM":0.00001,"requireExactRepeatedObservationHashes":true,"requireConsistentAttemptCounts":true,"requireFiniteOrNullMetrics":true,"requirePairedFramesWithinRun":true,"requireRobustEstimatorToWin":false},
+  "cases": [
+    {"id":"geometry-surrounding","study":"geometry","geometry":"surrounding","config":{}},
+    {"id":"geometry-near-collinear","study":"geometry","geometry":"near-collinear","config":{}},
+    {"id":"timing-precise","study":"timing","config":{"timingNs":0.1}},
+    {"id":"timing-coarse","study":"timing","config":{"timingNs":10}},
+    {"id":"calibration-clean","study":"calibration","config":{}},
+    {"id":"calibration-unmodelled-offset","study":"calibration","anchorOffsetNs":25,"config":{}},
+    {"id":"clock-static","study":"clock","receiver":{"clockOffset":100,"clockDrift":0},"config":{"measurement":"pseudorange","estimators":["wls","ekf"],"duration":20,"trials":3}},
+    {"id":"clock-drifting","study":"clock","receiver":{"clockOffset":100,"clockDrift":0.02},"config":{"measurement":"pseudorange","estimators":["wls","ekf"],"duration":20,"trials":3}},
+    {"id":"contamination-clean","study":"contamination","config":{}},
+    {"id":"contamination-heavy","study":"contamination","config":{"nlosProbability":0.3,"nlosBiasM":10,"nlosLossDb":0,"outlierProbability":0.1,"outlierScale":30}},
+    {"id":"availability-full","study":"missing-observations","config":{"dropout":0}},
+    {"id":"availability-intermittent","study":"missing-observations","config":{"dropout":0.4}},
+    {"id":"dynamic-tight-filter","study":"dynamic-filter","receiver":{"mobility":"velocity","speed":3,"heading":25},"config":{"estimators":["wls","ekf","ukf"],"duration":20,"trials":3,"processNoise":0.001}},
+    {"id":"dynamic-flexible-filter","study":"dynamic-filter","receiver":{"mobility":"velocity","speed":3,"heading":25},"config":{"estimators":["wls","ekf","ukf"],"duration":20,"trials":3,"processNoise":0.5}},
+    {"id":"covariance-nominal","study":"misspecification","config":{"covarianceScale":1}},
+    {"id":"covariance-understated","study":"misspecification","config":{"covarianceScale":0.1}}
+  ],
+  "interpretation": [
+    "Report every seed, estimator, attempted fix and failure; no seed selection after viewing results.",
+    "WLS and robust losses use identical frames within a case/seed; verify observation hashes.",
+    "Changing clock/geometry/noise changes datasets; cross-case comparisons are controlled synthetic scenarios, not identical observations.",
+    "NEES is e^T P^-1 e for stored full-rank XY covariance; nominal 95% ellipse coverage uses threshold 5.991. Diagnostics are finite-sample descriptions, not a calibration acceptance claim.",
+    "Accuracy is conditional on successful fixes; report availability separately. Runtime is environment-dependent and not expected to repeat exactly.",
+    "Non-coplanar geometry, vertical accuracy and MBWDE require separately validated scientific implementations and are excluded."
+  ]
+}
