@@ -1,7 +1,7 @@
 // Verify the built app in an isolated local process and browser; never use a real account.
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { chromium, expect } from '@playwright/test';
 const probe = createServer();
@@ -78,9 +78,69 @@ try {
   await page.getByRole('button', { name: '2D', exact: true }).click();
   await expect(page.locator('.scene-viewport canvas')).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('terralab.active.v1'))).toBe(original);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const obstacle = JSON.parse(original).objects.find((o) => o.kind === 'obstacle');
+  if (!obstacle) throw Error('Production fixture needs an obstacle');
+  await page.getByRole('button', { name: obstacle.name, exact: true }).click();
+  await page.getByRole('button', { name: 'Set height (Z): 10 m', exact: true }).click();
+  await page.getByRole('spinbutton', { name: 'Height (Z)', exact: true }).fill('37');
+  await page.getByRole('spinbutton', { name: 'Height (Z)', exact: true }).press('Enter');
+  await expect
+    .poll(() =>
+      page.evaluate(() => JSON.parse(localStorage.getItem('terralab.active.v1')).schemaVersion),
+    )
+    .toBe(2);
+  await page.getByRole('button', { name: '3D', exact: true }).click();
+  await expect(page.locator('.scene-viewport')).toHaveAttribute('data-ready', 'true', {
+    timeout: 30000,
+  });
+  await page.getByRole('button', { name: 'Fit all', exact: true }).click();
+  if (artifacts)
+    await page.screenshot({ path: join(artifacts, 'physical-obstacle.png'), fullPage: true });
+  await page.reload();
+  await expect(page.getByRole('application')).toBeVisible();
+  await page.getByRole('button', { name: obstacle.name, exact: true }).click();
+  await expect(page.getByRole('spinbutton', { name: 'Height (Z)', exact: true })).toHaveValue('37');
+  const source = JSON.parse(await readFile('docs/examples/timing-benchmark.result.json', 'utf8')),
+    copy = structuredClone(source);
+  copy.id = crypto.randomUUID();
+  await page.evaluate(
+    async (runs) => {
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open('terralab-laboratory', 1);
+        request.onupgradeneeded = () =>
+          request.result.createObjectStore('experiments', { keyPath: 'id' });
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('experiments', 'readwrite');
+        for (const run of runs) tx.objectStore('experiments').add(run);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    },
+    [source, copy],
+  );
+  await page.goto(base + '/projects');
+  await page.getByRole('button', { name: 'Recent Experiments', exact: true }).click();
+  for (const run of [source, copy])
+    await page.getByRole('checkbox', { name: 'Compare ' + run.id, exact: true }).check();
+  await page.getByRole('button', { name: 'Compare selected runs', exact: true }).click();
+  await expect(
+    page.getByRole('img', { name: 'Comparison selected XY trajectories', exact: true }),
+  ).toBeVisible();
+  const pngDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export Position CDF PNG', exact: true }).click();
+  const png = await pngDownload;
+  const pngBytes = await readFile(await png.path());
+  expect(pngBytes.subarray(1, 4).toString()).toBe('PNG');
+  if (artifacts)
+    await page.screenshot({ path: join(artifacts, 'run-comparison.png'), fullPage: true });
   expect(errors).toEqual([]);
   console.log(
-    'PASS production build: 2D default, real WebGL 3D, camera presets, unchanged project, mobile width, cleanup and tower favicon routes. External browser requests blocked; no cloud account or mutation.',
+    'PASS production build: 2D default, real WebGL 3D, camera presets, unchanged project, mobile width, cleanup, tower favicon routes and schema-2 physical-height save/reload, immutable run comparison and actual PNG export. External browser requests blocked; no cloud account or mutation.',
   );
 } finally {
   if (browser) await browser.close();

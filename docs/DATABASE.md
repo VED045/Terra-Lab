@@ -4,7 +4,7 @@ Apply migrations in filename order. On a Phase 2 project where `202610200001_pro
 
 | Table | Purpose / write contract |
 |---|---|
-| projects | Owner, optional team, current schema-1 configuration, archive state and monotonically increasing version. Checked save RPC only. |
+| projects | Owner, optional team, current schema-1 or schema-2 configuration, archive state and monotonically increasing version. Checked save RPC only. |
 | project_revisions | One immutable configuration per project/version with author and timestamp. Restore creates another revision. |
 | project_stars | Personal preferences; only the current user inserts/deletes their own accessible project stars. |
 | teams / team_members | Explicit team owner plus viewer/editor membership, changed by team owner RPC. |
@@ -42,3 +42,7 @@ Private Storage buckets:
 `npm run test:database` executes all migrations unchanged in embedded PostgreSQL with minimal Auth/Storage fixture tables. It actually exercises SQL grants, RLS, RPC authorization, token redemption/revocation, optimistic versioning, immutability, storage policies, lease retry/fencing, cancellation and queue limits. It does **not** run Supabase Auth token issuance or Storage HTTP upload services. Those require the hosted/local two-user acceptance checklist.
 
 For a full local Supabase stack install Docker and Supabase CLI, run `supabase start`, then `supabase db reset`. Seed SQL creates no fake accounts/passwords/public research; authenticated users save the four built-in starter networks. Hosted confirmation stays enabled according to project Auth settings; local development disables confirmation. Never expose the worker service-role JWT in a `NEXT_PUBLIC_` variable.
+
+## Phase 5 additions
+
+Migration 005 adds schema-2 obstacle vertical dimensions while preserving legacy XY height semantics and v1 history. Migration 006 adds RLS-protected append-only recorded activity. Review [rollout/rollback and backup procedures](operations/BACKUP_RETENTION_RECOVERY.md) before applying missing migrations; no hosted change was performed by this update.

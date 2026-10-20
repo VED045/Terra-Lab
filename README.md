@@ -108,7 +108,7 @@ The **2D** editor remains the default. It supports the existing SVG tools, proje
 
 The optional **3D** view shares your project and selection. Orbit, pan and zoom; choose perspective or orthographic projection; use top, front and side views; fit the network; and translate supported objects with snapping or the Properties inspector. Camera settings and display layers do not alter experiment parameters or create scientific revisions.
 
-> **3D visualization is not 3D positioning.** Current solvers estimate horizontal XY only. Missing Z coordinates are displayed on an explicitly defined plane, not treated as surveyed elevations. Receiver altitude is metadata; optional building extrusion is illustrative. Recorded estimates and uncertainty stay on the XY plane—no vertical fix, covariance ellipsoid or RF propagation volume is invented.
+> **3D visualization is not 3D positioning.** Current solvers estimate horizontal XY only. Missing Z coordinates are displayed on an explicitly defined plane, not treated as surveyed elevations. Receiver altitude is metadata. Buildings and walls can have user-entered Z height and base elevation; unknown dimensions use an explicitly illustrative fallback. These dimensions do not change horizontal propagation or estimation. Recorded estimates and uncertainty stay on the XY plane—no vertical fix, covariance ellipsoid or RF propagation volume is invented.
 
 If WebGL is unavailable or its context is lost, return to 2D with the same project. See the [user guide](docs/USER_GUIDE.md) and [coordinate model](docs/3d/COORDINATE_MODEL.md).
 
@@ -425,3 +425,11 @@ For detailed interpretation, see the [scientific methods](docs/PHASE_2_METHODS.m
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:22d3ee,50:0e7490,100:0b1220&height=120&section=footer" alt="footer" width="100%"/>
 
 </div>
+
+### Research workflow improvements
+
+The dashboard follows your selected palette. Rename projects directly in Studio, inspect parameter explanations in Laboratory, and choose baseline durations up to 60 minutes or laboratory trajectories up to five minutes within the existing work budget.
+
+Buildings, walls and obstacles support explicit width (X), footprint depth (Y), height (Z) and optional base elevation in the 3D view. Saved view presets stay separate from scientific settings.
+
+Select two to four saved experiments to compare full-data metrics, configuration differences, error CDFs, standardized residuals and selected trajectories. Export complete sources, CSV, SVG/PNG charts, a manifest and a printable report. Named report collections are browser-local references. Conflicting saves preserve your draft and offer comparison, copy and deliberate reapply workflows.

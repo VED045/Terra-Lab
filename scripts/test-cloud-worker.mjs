@@ -9,6 +9,7 @@ import { resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 const combined = process.argv.includes('--combined');
+const schema2 = process.argv.includes('--schema2');
 const serviceKey = combined ? 'sb_secret_fixture_only' : 'fixture-service';
 const db = new PGlite({ extensions: { pgcrypto } }),
   owner = '10000000-0000-4000-8000-000000000001',
@@ -141,6 +142,27 @@ try {
   assert(ready, 'API starts: ' + logs);
   const raw = JSON.parse(await readFile('docs/examples/timing-clean.request.json', 'utf8'));
   raw.project.id = randomUUID();
+  if (schema2) {
+    raw.project.schemaVersion = 2;
+    raw.project.objects.push({
+      id: 'physical-fixture',
+      name: 'Physical fixture',
+      kind: 'obstacle',
+      enabled: true,
+      x: 5000,
+      y: 5000,
+      width: 20,
+      height: 7,
+      verticalHeight: 30,
+      baseElevation: 6,
+      shape: 'rectangle',
+      vertices: [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 7 },
+      ],
+    });
+  }
   for (const o of raw.project.objects)
     if (o.kind === 'anchor') {
       o.noise = 0;
@@ -222,6 +244,21 @@ try {
   assert.equal(result.records.length, 18);
   assert(result.records.every((r) => r.errorM !== null && r.errorM < 1e-6));
   assert.equal(result.id, id);
+  if (schema2) {
+    assert.equal(result.request.project.schemaVersion, 2);
+    assert.equal(result.request.project.objects.find((o) => o.id === 'physical-fixture').height, 7);
+    assert.equal(
+      result.request.project.objects.find((o) => o.id === 'physical-fixture').verticalHeight,
+      30,
+    );
+    assert.equal(
+      result.request.project.objects.find((o) => o.id === 'physical-fixture').baseElevation,
+      6,
+    );
+    console.log(
+      'PASS schema-2 physical metadata survived queue, worker normalization and hash-checked result publication',
+    );
+  }
   console.log(
     (combined ? 'PASS combined supervisor + modern secret key: ' : '') +
       'PASS durable HTTP flow: FastAPI → PostgreSQL/RLS/idempotent queue → real worker → immutable Storage envelopes → atomic manifest → exact 18 noiseless epochs; stranger denied. Auth/Storage HTTP are fixtures, not live Supabase validation.',
