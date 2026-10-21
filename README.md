@@ -2,7 +2,7 @@
 
 <img src="apps/web/public/brand/network-tower.svg" alt="TerraLab network tower" width="88" height="88"/>
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0b1220,50:0e7490,100:22d3ee&height=220&section=header&text=TerraLab&fontSize=72&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Terrestrial%20Positioning%20Research%20%26%20Simulation%20Studio&descAlignY=60&descSize=20" alt="TerraLab banner" width="100%"/>
+<!-- <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0b1220,50:0e7490,100:22d3ee&height=220&section=header&text=TerraLab&fontSize=72&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Terrestrial%20Positioning%20Research%20%26%20Simulation%20Studio&descAlignY=60&descSize=20" alt="TerraLab banner" width="100%"/> -->
 
 <a href="https://git.io/typing-svg">
   <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=20&pause=1200&color=22D3EE&center=true&vCenter=true&width=720&lines=GNSS-independent+positioning%2C+simulated+honestly.;Design+networks.+Move+receivers.+Compare+estimators.;Every+number+traces+back+to+a+documented+model.;Reproducible+experiments.+Shareable+results." alt="Typing animation" />
