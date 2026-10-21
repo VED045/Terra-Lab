@@ -1,5 +1,15 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  ArrowRight,
+  CalendarDays,
+  ChevronRight,
+  FlaskConical,
+  MoreHorizontal,
+  Plus,
+  Star,
+} from 'lucide-react';
+import { ResearchDashboardShell } from './research-dashboard-shell';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   templates,
@@ -46,19 +56,21 @@ const views = [
   'Saved Network Templates',
   'Teams',
 ] as const;
-type View = (typeof views)[number];
+export type View = (typeof views)[number];
 export function ResearchDashboard({
   open,
   onOpenChange,
   auth,
   embedded = false,
   onRunDemo,
+  onAccount,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   auth: AuthState;
   embedded?: boolean;
   onRunDemo?: () => void;
+  onAccount?: () => void;
 }) {
   const qc = useQueryClient(),
     { project, load } = useStudio();
@@ -94,6 +106,36 @@ export function ResearchDashboard({
   const [runs, setRuns] = useState<ExperimentResult[]>([]),
     [compare, setCompare] = useState<string[]>([]);
   const data = query.data;
+  const importInput = useRef<HTMLInputElement>(null);
+  const selectedDetails = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (embedded && selected?.id) {
+      selectedDetails.current?.focus({ preventScroll: true });
+      selectedDetails.current?.scrollIntoView({ block: 'start' });
+    }
+  }, [embedded, selected?.id]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState('Untitled research project');
+  const [newTemplate, setNewTemplate] = useState('square');
+  function chooseView(next: View) {
+    setView(next);
+    setSelected(null);
+  }
+  function exportProject() {
+    downloadFile(
+      new File([serializeProject(project)], 'terralab-project.json', { type: 'application/json' }),
+    );
+  }
+  function startProject(template = 'square') {
+    setError('');
+    setNewTemplate(template);
+    setNewName(
+      template === 'square'
+        ? 'Untitled research project'
+        : templates.find((t) => t.id === template)?.name || 'Untitled research project',
+    );
+    setCreateOpen(true);
+  }
   useEffect(() => {
     if (open)
       void localRuns()
@@ -244,9 +286,21 @@ export function ResearchDashboard({
           mergedRuns.find((r) => r.id === compare[1])?.request,
         )
       : [];
+  const allProjects = data?.projects ?? [];
+  const owned = allProjects.filter(
+    (p) => !p.config.archived && (p.owner_id === data?.userId || p.owner_id === 'local'),
+  );
+  const projectCounts: Partial<Record<View, number>> = {
+    'My Projects': owned.length,
+    'Recent Projects': allProjects.filter((p) => !p.config.archived && recent.includes(p.id))
+      .length,
+    'Starred Projects': allProjects.filter((p) => !p.config.archived && data?.stars.includes(p.id))
+      .length,
+    'Archived Projects': allProjects.filter((p) => p.config.archived).length,
+  };
   const content = (
     <>
-      {onRunDemo && (
+      {!embedded && onRunDemo && (
         <div className="research-demo">
           <div>
             <strong>A receiver in motion</strong>
@@ -264,14 +318,18 @@ export function ResearchDashboard({
           </Button>
         </div>
       )}
-      <div className="library-heading">
-        <span className="eyebrow">TERRALAB / WORKSPACE</span>
-        <span className="local-badge">{cloudStatusText(auth)}</span>
-      </div>
-      <p className="field-caption">
-        The dashboard loads up to 200 accessible rows per category; search and sorting apply to this
-        loaded index.
-      </p>
+      {!embedded && (
+        <>
+          <div className="library-heading">
+            <span className="eyebrow">TERRALAB / WORKSPACE</span>
+            <span className="local-badge">{cloudStatusText(auth)}</span>
+          </div>
+          <p className="field-caption">
+            The dashboard loads up to 200 accessible rows per category; search and sorting apply to
+            this loaded index.
+          </p>
+        </>
+      )}
       <details className="research-detail">
         <summary>Project filters (loaded index)</summary>
         <div className="research-inline">
@@ -351,8 +409,20 @@ export function ResearchDashboard({
           </Button>
         </div>
       </details>
+      {embedded && (
+        <div className="dashboard-panel-heading">
+          <h2>{view === 'My Projects' ? 'Projects' : view}</h2>
+          <Button variant="default" onClick={() => startProject()}>
+            <Plus size={16} />
+            New Project
+          </Button>
+        </div>
+      )}
       <div className="research-tabs">
-        {views.map((v) => (
+        {(embedded
+          ? (['My Projects', 'Recent Projects', 'Starred Projects', 'Archived Projects'] as const)
+          : views
+        ).map((v) => (
           <button
             key={v}
             className={v === view ? 'active' : ''}
@@ -361,7 +431,17 @@ export function ResearchDashboard({
               setSelected(null);
             }}
           >
-            {v}
+            {embedded
+              ? (
+                  {
+                    'My Projects': 'All Projects',
+                    'Recent Projects': 'Recent',
+                    'Starred Projects': 'Starred',
+                    'Archived Projects': 'Archived',
+                  } as Record<string, string>
+                )[v]
+              : v}
+            {embedded && <span className="dashboard-tab-count"> ({projectCounts[v] ?? 0})</span>}
           </button>
         ))}
       </div>
@@ -416,76 +496,129 @@ export function ResearchDashboard({
         <>
           <div className="saved-project-list">
             {projects.map((p) => (
-              <div className="research-project" key={p.id}>
+              <div className="research-project dashboard-project-row" key={p.id}>
                 <button
                   aria-label={`${data?.stars.includes(p.id) ? 'Unstar' : 'Star'} ${p.config.name}`}
                   onClick={() =>
                     void action(() => toggleStar(p.id, Boolean(data?.stars.includes(p.id))))
                   }
                 >
-                  {data?.stars.includes(p.id) ? '★' : '☆'}
+                  <Star size={17} fill={data?.stars.includes(p.id) ? 'currentColor' : 'none'} />
                 </button>
                 <button className="project-open" onClick={() => openProject(p.config)}>
                   <b>{p.config.name}</b>
-                  <small>
+                  {embedded && (
+                    <>
+                      <span className="dashboard-project-description">
+                        {p.config.objects.some(
+                          (o) => o.kind === 'receiver' && o.mobility !== 'stationary',
+                        )
+                          ? 'Follow a receiver along a repeatable simulation.'
+                          : 'Explore network geometry and positioning estimates.'}
+                      </span>
+                      <span className="dashboard-tags">
+                        <span>Simulation</span>
+                        <span>
+                          {p.config.objects.some(
+                            (o) => o.kind === 'receiver' && o.mobility !== 'stationary',
+                          )
+                            ? 'Rover'
+                            : 'Network'}
+                        </span>
+                        <span>{p.role}</span>
+                      </span>
+                    </>
+                  )}
+                  <small className={embedded ? 'sr-only' : undefined}>
                     {p.role} · {p.version ? `revision ${p.version}` : 'local'} ·{' '}
                     {p.config.objects.length} objects · {new Date(p.updated_at).toLocaleString()}
                   </small>
                 </button>
-                <Button size="sm" disabled={busy} onClick={() => void action(() => inspect(p))}>
-                  Details
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() =>
-                    void action(async () => {
-                      if (!confirm('Create a separate copy of ' + p.config.name + '?')) return;
-                      await saveProject(freshCopy(p.config));
-                    })
-                  }
-                >
-                  Duplicate
-                </Button>
-                {p.role !== 'viewer' && (
+                {embedded && (
+                  <>
+                    <span className="dashboard-row-meta">
+                      <FlaskConical size={14} />
+                      {p.config.objects.length} objects
+                    </span>
+                    <time className="dashboard-row-date" dateTime={p.updated_at}>
+                      <CalendarDays size={14} />
+                      {new Date(p.updated_at).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </time>
+                    <span className={`dashboard-status ${p.config.archived ? 'archived' : ''}`}>
+                      <i />
+                      {p.config.archived ? 'Archived' : 'Active'}
+                    </span>
+                  </>
+                )}
+                <ProjectActions compact={embedded} name={p.config.name}>
+                  <Button size="sm" disabled={busy} onClick={() => void action(() => inspect(p))}>
+                    Details
+                  </Button>
                   <Button
                     size="sm"
                     disabled={busy}
                     onClick={() =>
                       void action(async () => {
-                        if (
-                          !confirm(
-                            (p.config.archived ? 'Restore ' : 'Archive ') +
-                              p.config.name +
-                              '? Historical experiments will remain unchanged.',
-                          )
-                        )
-                          return;
-                        await saveMetadata(p.config, { archived: !p.config.archived });
+                        if (!confirm('Create a separate copy of ' + p.config.name + '?')) return;
+                        await saveProject(freshCopy(p.config));
                       })
                     }
                   >
-                    {p.config.archived ? 'Restore' : 'Archive'}
+                    Duplicate
                   </Button>
-                )}
-                {p.role === 'owner' && (
-                  <Button
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => {
-                      if (
-                        confirm(
-                          `Delete ${p.config.name}? Projects with experiment history must be archived.`,
-                        )
-                      )
+                  {p.role !== 'viewer' && (
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      onClick={() =>
                         void action(async () => {
-                          await deleteProject(p.id);
-                          setSelected(null);
-                        });
-                    }}
+                          if (
+                            !confirm(
+                              (p.config.archived ? 'Restore ' : 'Archive ') +
+                                p.config.name +
+                                '? Historical experiments will remain unchanged.',
+                            )
+                          )
+                            return;
+                          await saveMetadata(p.config, { archived: !p.config.archived });
+                        })
+                      }
+                    >
+                      {p.config.archived ? 'Restore' : 'Archive'}
+                    </Button>
+                  )}
+                  {p.role === 'owner' && (
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Delete ${p.config.name}? Projects with experiment history must be archived.`,
+                          )
+                        )
+                          void action(async () => {
+                            await deleteProject(p.id);
+                            setSelected(null);
+                          });
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                </ProjectActions>
+                {embedded && (
+                  <button
+                    className="dashboard-open-arrow"
+                    aria-label={`Open ${p.config.name}`}
+                    onClick={() => openProject(p.config)}
                   >
-                    Delete
-                  </Button>
+                    <ChevronRight size={18} />
+                  </button>
                 )}
               </div>
             ))}
@@ -495,7 +628,7 @@ export function ResearchDashboard({
               No projects in this view. Save a network or accept a research invitation.
             </p>
           )}
-          <div className="research-inline">
+          <div className="research-inline library-utilities">
             <Button
               disabled={busy}
               onClick={() =>
@@ -514,6 +647,8 @@ export function ResearchDashboard({
               Import project JSON
               <input
                 type="file"
+                ref={embedded ? undefined : importInput}
+                aria-label="Import project JSON"
                 className="sr-only"
                 accept=".json,application/json"
                 onChange={(e) => {
@@ -544,15 +679,19 @@ export function ResearchDashboard({
               Export current JSON
             </Button>
           </div>
-          <p className="eyebrow">STARTER NETWORKS</p>
-          <div className="research-starters">
-            {templates.map((t) => (
-              <button key={t.id} onClick={() => openProject(createTemplate(t.id))}>
-                <b>{t.name}</b>
-                <small>{t.description}</small>
-              </button>
-            ))}
-          </div>
+          {!embedded && (
+            <>
+              <p className="eyebrow">STARTER NETWORKS</p>
+              <div className="research-starters">
+                {templates.map((t) => (
+                  <button key={t.id} onClick={() => openProject(createTemplate(t.id))}>
+                    <b>{t.name}</b>
+                    <small>{t.description}</small>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
       {view === 'Recent Experiments' && (
@@ -819,7 +958,12 @@ export function ResearchDashboard({
         </section>
       )}
       {selected && (
-        <section className="research-detail">
+        <section
+          ref={selectedDetails}
+          tabIndex={-1}
+          aria-label="Project details"
+          className="research-detail"
+        >
           <h3>
             {selected.config.name} · {selected.role}
           </h3>
@@ -1137,8 +1281,11 @@ export function ResearchDashboard({
           )}
         </section>
       )}
-      <section className="research-detail">
-        <h3>Accept a research invitation</h3>
+      <details
+        className="research-detail dashboard-invitation"
+        open={invitation ? true : undefined}
+      >
+        <summary>Accept a research invitation</summary>
         <div className="research-inline">
           <input
             aria-label="Research invitation"
@@ -1169,11 +1316,148 @@ export function ResearchDashboard({
             Accept invitation
           </Button>
         </div>
-      </section>
+      </details>
     </>
   );
+  const newProjectDialog = (
+    <Dialog
+      open={createOpen}
+      onOpenChange={setCreateOpen}
+      title="New research project"
+      description="Give your project a name and choose a starting network."
+    >
+      <form
+        className="dashboard-create-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!newName.trim()) return;
+          void action(async () => {
+            if (
+              useStudio.getState().dirty &&
+              !confirm('Create a new project? Save or export the current unsaved edits first.')
+            )
+              return;
+            const next = createTemplate(newTemplate);
+            next.name = newName.trim();
+            next.canvas.theme = useStudio.getState().project.canvas.theme;
+            const saved = await saveProject(next);
+            setCreateOpen(false);
+            recordRecent(saved.id);
+            load(saved);
+            useLabView.getState().clear();
+            onOpenChange(false);
+          });
+        }}
+      >
+        <label>
+          Project name
+          <input
+            autoFocus
+            aria-label="New project name"
+            required
+            maxLength={80}
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+          />
+        </label>
+        <label>
+          Starting network
+          <select
+            aria-label="Starting network"
+            value={newTemplate}
+            onChange={(e) => setNewTemplate(e.target.value)}
+          >
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {error && (
+          <p role="alert" className="error-message">
+            {error}
+          </p>
+        )}
+        <div className="research-inline">
+          <Button type="button" onClick={() => setCreateOpen(false)}>
+            Cancel
+          </Button>
+          <Button variant="default" disabled={busy || !newName.trim()} type="submit">
+            {busy ? 'Creating…' : 'Create project'}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
   return embedded ? (
-    <section aria-label="Projects and research">{content}</section>
+    <ResearchDashboardShell
+      view={view}
+      onView={chooseView}
+      onAccount={onAccount}
+      onStudio={() => onOpenChange(false)}
+      authText={cloudStatusText(auth)}
+      email={auth.email}
+      onCreate={() => startProject()}
+      onImport={() => importInput.current?.click()}
+      onExport={exportProject}
+      onTemplate={startProject}
+      stats={{
+        projects: owned.length,
+        experiments: mergedRuns.length,
+        running: mergedRuns.filter((r) => ['queued', 'running'].includes(r.status)).length,
+        shared: allProjects.filter(
+          (p) => !p.config.archived && p.owner_id !== data?.userId && p.owner_id !== 'local',
+        ).length,
+        team: allProjects.filter((p) => !p.config.archived && p.team_id).length,
+      }}
+      demo={
+        onRunDemo && (
+          <div className="research-demo">
+            <div>
+              <strong>
+                <i />A receiver in motion <span className="dashboard-live">LIVE DEMO</span>
+              </strong>
+              <p>
+                Watch a live, synthetic rover simulation with position estimates.
+                <br />
+                Your current workspace is preserved.
+              </p>
+            </div>
+            <Button
+              variant="default"
+              help="Open a moving-receiver example and play the synthetic simulation. Your current workspace is preserved."
+              onClick={onRunDemo}
+            >
+              Run demo <ArrowRight size={16} />
+            </Button>
+          </div>
+        )
+      }
+    >
+      <section className="dashboard-content" aria-label="Projects and research">
+        {content}
+      </section>
+      <input
+        ref={importInput}
+        type="file"
+        hidden
+        aria-label="Import project file"
+        accept=".json,application/json"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file)
+            void action(async () => {
+              if (file.size > 2e6) throw Error('Project exceeds 2 MB');
+              openProject(
+                freshCopy(deserializeProject(await file.text()), file.name.replace(/\.json$/, '')),
+              );
+            });
+          e.target.value = '';
+        }}
+      />
+      {newProjectDialog}
+    </ResearchDashboardShell>
   ) : (
     <Dialog
       open={open}
@@ -1210,5 +1494,32 @@ function TeamMembers({ teamId }: { teamId: string }) {
         ))
       )}
     </div>
+  );
+}
+
+function ProjectActions({
+  compact,
+  name,
+  children,
+}: {
+  compact: boolean;
+  name: string;
+  children: ReactNode;
+}) {
+  if (!compact) return <>{children}</>;
+  return (
+    <details className="dashboard-project-actions">
+      <summary aria-label={`Actions for ${name}`}>
+        <MoreHorizontal size={18} />
+      </summary>
+      <div
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest('button'))
+            e.currentTarget.closest('details')?.removeAttribute('open');
+        }}
+      >
+        {children}
+      </div>
+    </details>
   );
 }

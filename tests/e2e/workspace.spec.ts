@@ -52,7 +52,9 @@ test('Projects page is usable on a small screen', async ({ page }, testInfo) => 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/projects');
   await expect(page.getByRole('button', { name: 'Run demo', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Show navigation', exact: true }).click();
   await expect(page.getByRole('button', { name: 'My Projects', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: testInfo.outputPath('projects-mobile.png'), fullPage: true });
 });

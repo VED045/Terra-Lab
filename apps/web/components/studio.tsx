@@ -472,26 +472,9 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
   if (workspace === 'projects')
     return (
       <main className={`research-page theme-${project.canvas.theme}`}>
-        <header className="research-page-header">
-          <div>
-            <div className="research-page-brand">
-              <NetworkLogo size={38} />
-              <span className="eyebrow">TERRALAB</span>
-            </div>
-            <h1>Research workspace</h1>
-            <p>Your projects, experiments, teams and shared research.</p>
-          </div>
-          <nav aria-label="Workspace navigation">
-            <Button onClick={openStudio}>
-              <Network size={16} /> Network studio
-            </Button>
-            <Button onClick={() => setAccountOpen(true)}>
-              <UserRound size={16} /> Account
-            </Button>
-          </nav>
-        </header>
         <ResearchDashboard
           embedded
+          onAccount={() => setAccountOpen(true)}
           open
           auth={auth}
           onRunDemo={runDemo}
