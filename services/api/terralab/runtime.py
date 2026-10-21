@@ -2,6 +2,8 @@
 import argparse
 import os
 import signal
+import socket
+import secrets
 import subprocess
 import sys
 import threading
@@ -24,7 +26,13 @@ def commands(environ):
     if environ.get('TERRALAB_RUN_WORKER', '0').lower() in ('1', 'true'):
         if environ.get('TERRALAB_JOB_MODE') != 'supabase' or not any(environ.get(k) for k in SERVICE_KEYS) or not environ.get('SUPABASE_URL'):
             raise ValueError('Combined runtime requires supabase mode, URL and a server-only service credential')
-        children.append(([sys.executable, '-m', 'terralab.worker'], dict(environ)))
+        # Same container, private loopback notification. Only the worker receives database credentials.
+        with socket.socket() as probe:
+            probe.bind(('127.0.0.1',0))
+            wake_port=probe.getsockname()[1]
+        wake_env=dict(TERRALAB_WORKER_WAKE_PORT=str(wake_port),TERRALAB_WORKER_WAKE_TOKEN=secrets.token_urlsafe(32))
+        api_env.update(wake_env)
+        children.append(([sys.executable, '-m', 'terralab.worker'], {**environ,**wake_env}))
     return children
 
 def shutdown(children, grace=20):

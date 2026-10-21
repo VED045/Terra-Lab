@@ -135,6 +135,13 @@ for (const role of ['owner', 'editor', 'viewer'] as const)
       await conflict.getByRole('button', { name: 'Close dialog', exact: true }).click();
       await expect(page.getByRole('status')).toContainText('VERSION_CONFLICT');
       await expect(x).toHaveValue('42');
+      const failedWrites = writes;
+      await x.fill('43');
+      await x.press('Enter');
+      await page.waitForTimeout(3500);
+      expect(writes).toBe(failedWrites);
+      await x.fill('42');
+      await x.press('Enter');
       expect(
         (await page.evaluate(() => JSON.parse(localStorage.getItem('terralab.active.v1')!)))
           .cloudVersion,

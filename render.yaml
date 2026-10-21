@@ -1,9 +1,10 @@
+# Optional paid alternative. Use render.free.yaml for the user's free service.
 services:
   - type: web
     name: terralab-api
     runtime: docker
     region: singapore
-    plan: 0.5c-512mb
+    plan: 1c-2g
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
@@ -13,29 +14,13 @@ services:
         value: production
       - key: TERRALAB_JOB_MODE
         value: supabase
+      - key: TERRALAB_RUN_WORKER
+        value: "1"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
         sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
       - key: TERRALAB_CORS_ORIGINS
-        sync: false
-  - type: worker
-    name: terralab-science-worker
-    runtime: docker
-    region: singapore
-    plan: 1c-2g
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    dockerCommand: python -m terralab.worker
-    autoDeployTrigger: off
-    maxShutdownDelaySeconds: 60
-    numInstances: 1
-    envVars:
-      - key: TERRALAB_ENV
-        value: production
-      - key: TERRALAB_JOB_MODE
-        value: supabase
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false

@@ -149,6 +149,7 @@ export function LaboratoryDialog({
     if (!active) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
+    let delay = 2000;
     async function poll() {
       try {
         const status = await laboratoryRequest(`?id=${active}`);
@@ -190,15 +191,17 @@ export function LaboratoryDialog({
           setActive(null);
           return;
         }
+        delay = status.status === 'queued' ? 5000 : 2000;
         setResult(status);
         setFailure('');
       } catch (error) {
+        delay = Math.min(30000, delay * 2);
         if (alive)
           setFailure(
             `${error instanceof Error ? error.message : String(error)} Polling will retry; job completion is not assumed.`,
           );
       }
-      if (alive) timer = setTimeout(() => void poll(), 1000);
+      if (alive) timer = setTimeout(() => void poll(), delay);
     }
     void poll();
     return () => {

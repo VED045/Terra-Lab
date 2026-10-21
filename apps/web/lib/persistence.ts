@@ -1,6 +1,15 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { deserializeProject, serializeProject, type Project } from '@terralab/shared';
+import { projectContent } from './project-content';
 let client: SupabaseClient | null = null;
+const pendingSaves = new Map<string, Promise<Project>>();
+const conflictListeners = new Set<(project: Project) => void>();
+export function observeSaveConflicts(listener: (project: Project) => void) {
+  conflictListeners.add(listener);
+  return () => {
+    conflictListeners.delete(listener);
+  };
+}
 async function currentUser(db: SupabaseClient) {
   const { data: session, error: sessionError } = await db.auth.getSession();
   if (sessionError) throw sessionError;
@@ -89,19 +98,47 @@ export async function saveProject(p: Project): Promise<Project> {
   if (db) {
     const user = await currentUser(db);
     if (user) {
-      const { data, error } = await db.rpc('save_research_project', {
-        p_config: saved,
-        p_expected: saved.cloudVersion ?? null,
-      });
-      if (error)
-        throw Error(
-          saved.schemaVersion === 2 &&
-            /structure|schema|Invalid project configuration/i.test(error.message)
-            ? error.message +
-                '. Physical dimensions require migration 005 on the server; your draft is preserved. Export JSON before leaving.'
-            : error.message,
-        );
-      return deserializeProject(JSON.stringify(data));
+      // Autosave, laboratory submission and explicit Save can submit the same draft together.
+      // Share only identical, versioned submissions within this account; never rebase different drafts.
+      const key = JSON.stringify([user.id, saved.id, saved.cloudVersion, projectContent(saved)]);
+      const existing = pendingSaves.get(key);
+      if (existing) return existing;
+      const pending = (async () => {
+        const { data, error } = await db.rpc('save_research_project', {
+          p_config: saved,
+          p_expected: saved.cloudVersion ?? null,
+        });
+        if (error) {
+          if (error.message.includes('VERSION_CONFLICT')) {
+            // Compatible with servers before migration 007. A byte-equivalent user
+            // configuration can safely accept the latest metadata without overwriting anything.
+            try {
+              const latest = await db.from('projects').select('config').eq('id', saved.id).single();
+              if (!latest.error) {
+                const cloud = deserializeProject(JSON.stringify(latest.data.config));
+                if (projectContent(cloud) === projectContent(saved)) return cloud;
+              }
+            } catch {
+              /* Preserve the original conflict if reconciliation is unavailable. */
+            }
+            for (const listener of conflictListeners) listener(p);
+          }
+          throw Error(
+            saved.schemaVersion === 2 &&
+              /structure|schema|Invalid project configuration/i.test(error.message)
+              ? error.message +
+                  '. Physical dimensions require migration 005 on the server; your draft is preserved. Export JSON before leaving.'
+              : error.message,
+          );
+        }
+        return deserializeProject(JSON.stringify(data));
+      })();
+      pendingSaves.set(key, pending);
+      try {
+        return await pending;
+      } finally {
+        if (pendingSaves.get(key) === pending) pendingSaves.delete(key);
+      }
     }
   }
   return localSave(localStorage, saved);

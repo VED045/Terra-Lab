@@ -51,7 +51,10 @@ def validate_limits(request):
 
 def create(request, token, key):
     validate_limits(request)
-    return {'id':rpc('enqueue_research_job',{'p_request':request.model_dump(),'p_key':key},token)}
+    from .worker_wake import notify
+    identity=rpc('enqueue_research_job',{'p_request':request.model_dump(),'p_key':key},token)
+    notify()
+    return {'id':identity}
 
 def read(identity, token, detail=False):
     rows=call('/rest/v1/research_jobs?id=eq.'+identity+'&select=id,status,request,completed,planned,error,logs,created_at,updated_at',token)
@@ -59,7 +62,8 @@ def read(identity, token, detail=False):
     job=rows[0]
     job['createdAt']=job.pop('created_at'); job.pop('updated_at',None)
     job.update(records=[],frames={},summaries=[],softwareVersion='0.2.0')
-    runs=call('/rest/v1/experiment_runs?id=eq.'+identity+'&select=manifest,metrics,software_version,logs',token)
+    # Publication is atomic with the terminal job transition. Active polls need no run lookup.
+    runs=[] if job['status'] in ('queued','running') else call('/rest/v1/experiment_runs?id=eq.'+identity+'&select=manifest,metrics,software_version,logs',token)
     if runs:
         job['summaries']=runs[0]['metrics']; job['softwareVersion']=runs[0]['software_version']
         if detail: job['manifest']=runs[0]['manifest']; job['logs']=runs[0]['logs']

@@ -95,3 +95,15 @@ describe('Cloud session status', () => {
     expect(update).toHaveBeenCalledWith({ status: 'offline', email: null });
   });
 });
+
+it('does not refetch workspace data for duplicate sign-ins, focus events or token refreshes', () => {
+  const f = fixture();
+  f.emit('SIGNED_IN', session);
+  const count = f.states.length;
+  f.emit('SIGNED_IN', session);
+  f.emit('TOKEN_REFRESHED', session);
+  expect(f.states).toHaveLength(count);
+  f.emit('SIGNED_OUT', null);
+  expect(f.states).toHaveLength(count + 1);
+  f.stop();
+});

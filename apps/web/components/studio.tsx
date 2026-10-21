@@ -68,7 +68,7 @@ import {
   type Solution,
 } from '@terralab/shared';
 import { useStudio, formatTime, type ToolMode } from '@/lib/store';
-import { saveProject, supabase } from '@/lib/persistence';
+import { saveProject, supabase, observeSaveConflicts } from '@/lib/persistence';
 import { observeAuthSession, type AuthState } from '@/lib/auth-session';
 import NetworkCanvas from './network-canvas';
 import Inspector from './inspector';
@@ -140,6 +140,21 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
   const email = auth.email;
   const [notice, setNotice] = useState('');
   const [conflictOpen, setConflictOpen] = useState(false);
+  const [blockedRevision, setBlockedRevision] = useState<string | null>(null);
+  const revisionKey = project.id + ':' + (project.cloudVersion ?? 'local');
+  const conflictBlocked = blockedRevision === revisionKey;
+  useEffect(
+    () =>
+      observeSaveConflicts((draft) => {
+        const current = useStudio.getState().project;
+        if (current.id !== draft.id || current.cloudVersion !== draft.cloudVersion) return;
+        setBlockedRevision(current.id + ':' + (current.cloudVersion ?? 'local'));
+        setLaboratoryOpen(false);
+        if (workspace !== 'projects') setProjectsOpen(false);
+        setConflictOpen(true);
+      }),
+    [workspace],
+  );
   const [apiResult, setApiResult] = useState<Solution | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const mounted = useRef(false);
@@ -166,10 +181,9 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
     onSuccess: (p, original) => {
       const state = useStudio.getState();
       state.acceptSave(original, p);
-      void qc.invalidateQueries({ queryKey: ['projects'] });
+      void qc.invalidateQueries({ queryKey: ['projects'], refetchType: 'none' });
     },
     onError: (e) => {
-      if (e.message.includes('VERSION_CONFLICT')) setConflictOpen(true);
       log(`Save failed: ${e.message}`, 'warn');
       setNotice(`Save failed: ${e.message}`);
     },
@@ -178,6 +192,10 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
   const saveCurrent = useCallback(
     async (manual = false) => {
       if (useSceneView.getState().mode === '3d' && !useSceneView.getState().editable) return;
+      if (conflictBlocked) {
+        if (manual) setConflictOpen(true);
+        return;
+      }
       if (saveRef.current) return;
       saveRef.current = true;
       try {
@@ -191,7 +209,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
         saveRef.current = false;
       }
     },
-    [saveAsync, log],
+    [saveAsync, log, conflictBlocked],
   );
   useEffect(() => {
     if (!mounted.current) {
@@ -244,10 +262,20 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
     } catch {
       setNotice('Browser storage is full. Export your project JSON.');
     }
-    if (!dirty || laboratoryOpen || projectsOpen) return;
+    if (!dirty || laboratoryOpen || projectsOpen || conflictBlocked || conflictOpen) return;
     const id = setTimeout(() => void saveCurrent(), 1500);
     return () => clearTimeout(id);
-  }, [project, dirty, hydrated, demoMode, saveCurrent, laboratoryOpen, projectsOpen]);
+  }, [
+    project,
+    dirty,
+    hydrated,
+    demoMode,
+    saveCurrent,
+    laboratoryOpen,
+    projectsOpen,
+    conflictBlocked,
+    conflictOpen,
+  ]);
   useEffect(() => {
     if (!notice) return;
     const id = setTimeout(() => setNotice(''), 6000);
@@ -471,6 +499,14 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
             if (!open) openStudio();
           }}
         />
+        {conflictBlocked && !conflictOpen && (
+          <Button onClick={() => setConflictOpen(true)}>Resolve save conflict</Button>
+        )}
+        <ConflictDialog
+          key={revisionKey + ':' + conflictOpen}
+          open={conflictOpen}
+          onOpenChange={setConflictOpen}
+        />
         <AccountDialog
           open={accountOpen}
           onOpenChange={setAccountOpen}
@@ -570,6 +606,8 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
               <span className="status-dot saving" />
               Saving…
             </>
+          ) : conflictBlocked ? (
+            <>Cloud sync paused · resolve conflict</>
           ) : dirty ? (
             <>
               <span className="unsaved-dot" />
@@ -1096,7 +1134,11 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
         onRunDemo={runDemo}
       />
       <ShareDialog open={shareOpen} onOpenChange={setShareOpen} />
-      <ConflictDialog open={conflictOpen} onOpenChange={setConflictOpen} />
+      <ConflictDialog
+        key={revisionKey + ':' + conflictOpen}
+        open={conflictOpen}
+        onOpenChange={setConflictOpen}
+      />
       <LaboratoryDialog open={laboratoryOpen} onOpenChange={setLaboratoryOpen} />
       <SignalDialog open={signalOpen} onOpenChange={setSignalOpen} />
       <SettingsDialog

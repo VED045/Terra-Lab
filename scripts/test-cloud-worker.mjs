@@ -18,11 +18,14 @@ const db = new PGlite({ extensions: { pgcrypto } }),
 await db.exec(await readFile('scripts/fixtures/auth-storage.sql', 'utf8'));
 for (const file of (await readdir('supabase/migrations')).filter((f) => f.endsWith('.sql')).sort())
   await db.exec(await readFile('supabase/migrations/' + file, 'utf8'));
+let claims = 0;
+let serviceRequests = 0;
 const allowed = new Set([
   'save_research_project',
   'enqueue_research_job',
   'cancel_research_job',
   'claim_research_job',
+  'research_queue_wake_delay',
   'heartbeat_research_job',
   'finish_research_job',
 ]);
@@ -40,6 +43,7 @@ const server = createServer(async (req, res) => {
       res.end('{}');
       return;
     }
+    if (service) serviceRequests++;
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const bytes = Buffer.concat(chunks),
@@ -49,6 +53,7 @@ const server = createServer(async (req, res) => {
       await tx.query("select set_config('request.jwt.claim.sub',$1,true)", [service ? '' : token]);
       if (url.pathname.startsWith('/rest/v1/rpc/')) {
         const name = url.pathname.split('/').at(-1);
+        if (name === 'claim_research_job') claims++;
         if (!allowed.has(name)) throw Error('RPC unavailable');
         const body = JSON.parse(bytes.toString() || '{}'),
           keys = Object.keys(body);
@@ -96,6 +101,10 @@ const portProbe = createServer();
 await new Promise((r) => portProbe.listen(0, '127.0.0.1', r));
 const port = portProbe.address().port;
 await new Promise((r) => portProbe.close(r));
+const wakeProbe = createServer();
+await new Promise((r) => wakeProbe.listen(0, '127.0.0.1', r));
+const wakePort = wakeProbe.address().port;
+await new Promise((r) => wakeProbe.close(r));
 const python = resolve(
     process.platform === 'win32' ? '.venv/Scripts/python.exe' : '.venv/bin/python',
   ),
@@ -110,6 +119,8 @@ const python = resolve(
     SUPABASE_SECRET_KEY: combined ? serviceKey : '',
     TERRALAB_RUN_WORKER: combined ? '1' : '0',
     PORT: String(port),
+    TERRALAB_WORKER_WAKE_PORT: String(wakePort),
+    TERRALAB_WORKER_WAKE_TOKEN: randomUUID(),
     OPENBLAS_NUM_THREADS: '1',
   };
 let api, worker;
@@ -129,6 +140,14 @@ try {
       { env, windowsHide: true, stdio: [combined ? 'pipe' : 'ignore', 'pipe', 'pipe'] },
     ),
   );
+  if (!combined)
+    worker = collect(
+      spawn(python, ['-m', 'terralab.worker'], {
+        env,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+    );
   const base = `http://127.0.0.1:${port}`;
   let ready = false;
   for (let i = 0; i < 300; i++) {
@@ -215,14 +234,6 @@ try {
     404,
     'stranger cannot read job',
   );
-  if (!combined)
-    worker = collect(
-      spawn(python, ['-m', 'terralab.worker'], {
-        env,
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }),
-    );
   let status;
   for (let i = 0; i < 200; i++) {
     status = await (await call('/experiments/' + id)).json();
@@ -259,6 +270,73 @@ try {
       'PASS schema-2 physical metadata survived queue, worker normalization and hash-checked result publication',
     );
   }
+  // Let startup/duplicate notifications settle, then prove idle means no claim RPCs.
+  await new Promise((r) => setTimeout(r, 300));
+  const idleClaims = claims;
+  const idleServiceRequests = serviceRequests;
+  await new Promise((r) => setTimeout(r, 3200));
+  assert.equal(claims, idleClaims, 'idle worker sends no recurring database claims');
+  assert.equal(
+    serviceRequests,
+    idleServiceRequests,
+    'idle worker sends no other recurring Supabase requests either',
+  );
+  const second = await fetch(base + '/experiments', {
+    method: 'POST',
+    headers: { ...headers, 'Idempotency-Key': randomUUID() },
+    body: JSON.stringify(raw),
+  });
+  assert.equal(second.status, 202, 'submission wakes an already idle worker');
+  const secondId = (await second.json()).id;
+  let secondStatus;
+  for (let i = 0; i < 200; i++) {
+    secondStatus = await (await call('/experiments/' + secondId)).json();
+    if (!['queued', 'running'].includes(secondStatus.status)) break;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  assert.equal(secondStatus.status, 'completed', JSON.stringify(secondStatus) + logs);
+  console.log(
+    'PASS idle worker issues zero recurring claims and wakes for a second submitted experiment',
+  );
+  const recoveryKey = randomUUID();
+  const recoveryId = await db.transaction(async (tx) => {
+    await tx.exec('SET LOCAL ROLE authenticated');
+    await tx.query("select set_config('request.jwt.claim.sub',$1,true)", [owner]);
+    return (
+      await tx.query('select public.enqueue_research_job($1::jsonb,$2) as id', [
+        JSON.stringify(raw),
+        recoveryKey,
+      ])
+    ).rows[0].id;
+  });
+  await db.transaction(async (tx) => {
+    await tx.exec('SET LOCAL ROLE service_role');
+    const abandoned = (await tx.query('select public.claim_research_job() as job')).rows[0].job;
+    assert.equal(abandoned.id, recoveryId);
+    await tx.query(
+      "update public.research_jobs set lease_until=clock_timestamp()+interval '1 second' where id=$1",
+      [recoveryId],
+    );
+  });
+  const recoveryWake = await fetch(base + '/experiments', {
+    method: 'POST',
+    headers: { ...headers, 'Idempotency-Key': recoveryKey },
+    body: JSON.stringify(raw),
+  });
+  assert.equal(recoveryWake.status, 202);
+  assert.equal((await recoveryWake.json()).id, recoveryId);
+  let recovered;
+  for (let i = 0; i < 200; i++) {
+    recovered = await (await call('/experiments/' + recoveryId)).json();
+    if (!['queued', 'running'].includes(recovered.status)) break;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  assert.equal(recovered.status, 'completed', JSON.stringify(recovered) + logs);
+  assert.equal(recovered.completed, 18);
+  console.log(
+    'PASS an abandoned running lease schedules one recovery wake and completes without an idle poll loop',
+  );
+
   console.log(
     (combined ? 'PASS combined supervisor + modern secret key: ' : '') +
       'PASS durable HTTP flow: FastAPI → PostgreSQL/RLS/idempotent queue → real worker → immutable Storage envelopes → atomic manifest → exact 18 noiseless epochs; stranger denied. Auth/Storage HTTP are fixtures, not live Supabase validation.',

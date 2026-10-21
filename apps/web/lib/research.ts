@@ -184,7 +184,7 @@ export async function revisionHistory(id: string) {
   if (!db) throw Error('Cloud revisions require sign-in');
   const { data, error } = await db
     .from('project_revisions')
-    .select('version,created_at,author_id,config')
+    .select('version,created_at,author_id')
     .eq('project_id', id)
     .order('version', { ascending: false })
     .limit(100);
@@ -193,8 +193,19 @@ export async function revisionHistory(id: string) {
     version: number;
     created_at: string;
     author_id: string;
-    config: Project;
   }[];
+}
+export async function revisionProject(id: string, version: number): Promise<Project> {
+  const db = supabase();
+  if (!db) throw Error('Cloud revisions require sign-in');
+  const { data, error } = await db
+    .from('project_revisions')
+    .select('config')
+    .eq('project_id', id)
+    .eq('version', version)
+    .single();
+  if (error) throw Error(error.message);
+  return deserializeProject(JSON.stringify(data.config));
 }
 export async function projectAccess(id: string) {
   const db = supabase();

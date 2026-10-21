@@ -72,12 +72,36 @@ export function ConflictDialog({
             Export preserved draft
           </Button>
           <Button
+            disabled={busy}
             onClick={() => {
-              useStudio.getState().load(freshCopy(local));
-              onOpenChange(false);
+              try {
+                if (serializeProject(useStudio.getState().project) !== serializeProject(local))
+                  throw Error('Draft changed. Compare again before opening a copy.');
+                localStorage.setItem('terralab.conflict-recovery.v1', serializeProject(local));
+                useStudio.getState().load(freshCopy(local));
+                onOpenChange(false);
+              } catch (e) {
+                setError(e instanceof Error ? e.message : String(e));
+              }
             }}
           >
             Open draft as a new copy
+          </Button>
+          <Button
+            disabled={busy}
+            onClick={() => {
+              try {
+                if (serializeProject(useStudio.getState().project) !== serializeProject(local))
+                  throw Error('Draft changed. Compare again before reloading.');
+                localStorage.setItem('terralab.conflict-recovery.v1', serializeProject(local));
+                useStudio.getState().load(latest);
+                onOpenChange(false);
+              } catch (e) {
+                setError(e instanceof Error ? e.message : String(e));
+              }
+            }}
+          >
+            Use latest cloud revision (back up this draft)
           </Button>
           <div className="lab-table-wrap">
             <table className="lab-table">

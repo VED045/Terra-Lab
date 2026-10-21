@@ -34,6 +34,17 @@ try {
   await ok('all versioned migrations execute', async () =>
     assert.equal((await query('select count(*)::int as n from public.projects'))[0].n, 0),
   );
+  await as('service_role', null);
+  await ok('empty queue has no scheduled wake or periodic polling interval', async () => {
+    assert.equal(
+      (await query('select public.research_queue_wake_delay() as delay'))[0].delay,
+      null,
+    );
+  });
+  await as('authenticated', owner);
+  await ok('browser users cannot inspect service-only worker scheduling', () =>
+    denied('select public.research_queue_wake_delay()'),
+  );
   const config = {
     ...JSON.parse(await readFile('docs/examples/timing-clean.request.json', 'utf8')).project,
     id: pid,
@@ -65,6 +76,29 @@ try {
     await denied('select public.save_research_project($1::jsonb,1)', [JSON.stringify(config)]);
     assert.equal((await query('select version from public.projects'))[0].version, 2);
   });
+  await ok(
+    'identical stale retries return the accepted revision without history or activity writes',
+    async () => {
+      const revisions = await query('select count(*)::int as n from public.project_revisions');
+      const activity = await query('select count(*)::int as n from public.project_activity');
+      const retried = await save({ ...saved, cloudVersion: 1, updatedAt: config.updatedAt }, 1);
+      assert.equal(retried.cloudVersion, 2);
+      assert.deepEqual(
+        await query('select count(*)::int as n from public.project_revisions'),
+        revisions,
+      );
+      assert.deepEqual(
+        await query('select count(*)::int as n from public.project_activity'),
+        activity,
+      );
+    },
+  );
+  await ok(
+    'explicit revision restore retains strict expected-version checks even for identical content',
+    async () => {
+      await denied('select public.restore_project_revision($1,2,1)', [pid]);
+    },
+  );
   await ok('direct writes bypassing version RPC denied', () =>
     denied('update public.projects set name=$1 where id=$2', ['bypass', pid]),
   );
@@ -144,6 +178,7 @@ try {
   await as('authenticated', owner);
   const team = (await query("select public.create_research_team('Research team') as id"))[0].id;
   await query("select public.manage_team_member($1,$2,'viewer')", [team, stranger]);
+  await denied('select public.assign_project_team($1,$2,2)', [pid, team]);
   await query('select public.assign_project_team($1,$2,3)', [pid, team]);
   await as('authenticated', stranger);
   await ok('team viewer reads project but cannot promote self', async () => {
@@ -196,7 +231,17 @@ try {
     },
   );
   await as('service_role', null);
+  await ok('queued work requests a bounded recovery wake', async () => {
+    assert.equal((await query('select public.research_queue_wake_delay() as delay'))[0].delay, 2);
+  });
   let claimed = (await query('select public.claim_research_job() as job'))[0].job;
+  await ok(
+    'unfinished running work schedules its lease expiry rather than idle polling',
+    async () => {
+      const delay = (await query('select public.research_queue_wake_delay() as delay'))[0].delay;
+      assert.ok(delay >= 2 && delay <= 91);
+    },
+  );
   await ok('worker claims one lease, second claim returns no job', async () => {
     assert.equal(claimed.id, job);
     assert.equal((await query('select public.claim_research_job() as job'))[0].job, null);

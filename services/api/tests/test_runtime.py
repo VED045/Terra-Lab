@@ -9,6 +9,9 @@ def test_api_environment_never_receives_either_worker_key():
     assert api[1]['SUPABASE_PUBLISHABLE_KEY'] == 'public-fixture'
     assert not any(k in api[1] for k in runtime.SERVICE_KEYS)
     assert worker[1]['SUPABASE_SECRET_KEY'] == 'sb_secret_fixture'
+    assert api[1]['TERRALAB_WORKER_WAKE_TOKEN'] == worker[1]['TERRALAB_WORKER_WAKE_TOKEN']
+    assert len(api[1]['TERRALAB_WORKER_WAKE_TOKEN']) >= 32
+    assert api[1]['TERRALAB_WORKER_WAKE_PORT'] == worker[1]['TERRALAB_WORKER_WAKE_PORT']
     assert '10000' in api[0] and api[0][api[0].index('--workers')+1] == '1'
     assert len(runtime.commands({})) == 1
 

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { projectContent } from './project-content';
 import { useSceneView, sceneMutationAllowed } from './scene-view';
 import {
   createTemplate,
@@ -196,7 +197,7 @@ export const useStudio = create<State>((set, get) => ({
     })),
   acceptSave: (original, saved) =>
     set((s) =>
-      s.project.id !== original.id
+      s.project.id !== original.id || (saved.cloudVersion ?? 0) < (s.project.cloudVersion ?? 0)
         ? {}
         : {
             project: {
@@ -205,7 +206,7 @@ export const useStudio = create<State>((set, get) => ({
               cloudVersion: saved.cloudVersion,
               cloudOwnerId: saved.cloudOwnerId,
             },
-            dirty: JSON.stringify(s.project) !== JSON.stringify(original),
+            dirty: projectContent(s.project) !== projectContent(original),
           },
     ),
   log: (text, level = 'info') =>

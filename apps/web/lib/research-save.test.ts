@@ -1,16 +1,22 @@
 import { it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createTemplate } from '@terralab/shared';
-const { rpc, getSession, getUser } = vi.hoisted(() => ({
+const { rpc, getSession, getUser, latest } = vi.hoisted(() => ({
   rpc: vi.fn(),
   getSession: vi.fn(),
   getUser: vi.fn(),
+  latest: vi.fn(),
 }));
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: () => ({ rpc, auth: { getSession, getUser } }),
+  createClient: () => ({
+    rpc,
+    auth: { getSession, getUser },
+    from: () => ({ select: () => ({ eq: () => ({ single: latest }) }) }),
+  }),
 }));
-import { saveProject } from './persistence';
+import { saveProject, observeSaveConflicts } from './persistence';
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
+  latest.mockResolvedValue({ data: null, error: { message: 'Unavailable' } });
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://fixture.supabase.co');
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'fixture-public');
   getSession.mockResolvedValue({ data: { session: {} }, error: null });
@@ -46,4 +52,67 @@ it('explains missing migration 005 when the v1 server rejects a schema-2 save', 
   rpc.mockResolvedValue({ data: null, error: { message: 'Invalid project configuration' } });
   await expect(saveProject(p)).rejects.toThrow('migration 005');
   expect(p.schemaVersion).toBe(2);
+});
+
+it('deduplicates overlapping identical saves without creating a second revision', async () => {
+  const p = { ...createTemplate(), cloudVersion: 1 };
+  let resolve!: (value: unknown) => void;
+  rpc.mockReturnValue(
+    new Promise((done) => {
+      resolve = done;
+    }),
+  );
+  const a = saveProject(p),
+    b = saveProject(structuredClone(p));
+  await vi.waitFor(() => expect(rpc).toHaveBeenCalledOnce());
+  resolve({ data: { ...p, cloudVersion: 2 }, error: null });
+  expect(await a).toEqual(await b);
+  expect(rpc).toHaveBeenCalledOnce();
+});
+it('reconciles an identical stale draft without another write or a conflict dialog', async () => {
+  const p = { ...createTemplate(), cloudVersion: 1 };
+  const listener = vi.fn(),
+    stop = observeSaveConflicts(listener);
+  rpc.mockResolvedValue({ error: { message: 'VERSION_CONFLICT' } });
+  latest.mockResolvedValue({ data: { config: { ...p, cloudVersion: 3 } }, error: null });
+  try {
+    expect((await saveProject(p)).cloudVersion).toBe(3);
+    expect(listener).not.toHaveBeenCalled();
+  } finally {
+    stop();
+  }
+  expect(rpc).toHaveBeenCalledOnce();
+});
+it('notifies recovery for divergent drafts and never retries with a forced latest version', async () => {
+  const p = { ...createTemplate(), cloudVersion: 1 };
+  const listener = vi.fn(),
+    stop = observeSaveConflicts(listener);
+  rpc.mockResolvedValue({ error: { message: 'VERSION_CONFLICT' } });
+  latest.mockResolvedValue({
+    data: { config: { ...p, name: 'Remote edit', cloudVersion: 3 } },
+    error: null,
+  });
+  try {
+    await expect(saveProject(p)).rejects.toThrow('VERSION_CONFLICT');
+    expect(listener).toHaveBeenCalledWith(p);
+  } finally {
+    stop();
+  }
+  expect(rpc).toHaveBeenCalledOnce();
+  expect(p.cloudVersion).toBe(1);
+});
+it('keeps overlapping different drafts separate and retains the stale version guard', async () => {
+  const p = { ...createTemplate(), cloudVersion: 1 };
+  rpc.mockImplementation(async (_name, body) =>
+    body.p_config.name === p.name
+      ? { data: { ...p, cloudVersion: 2 }, error: null }
+      : { error: { message: 'VERSION_CONFLICT' } },
+  );
+  const results = await Promise.allSettled([
+    saveProject(p),
+    saveProject({ ...p, name: 'Other edit' }),
+  ]);
+  expect(results.map((r) => r.status)).toEqual(['fulfilled', 'rejected']);
+  expect(rpc).toHaveBeenCalledTimes(2);
+  expect(rpc.mock.calls.every(([, body]) => body.p_expected === 1)).toBe(true);
 });

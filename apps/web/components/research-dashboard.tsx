@@ -17,6 +17,7 @@ import {
   toggleStar,
   freshCopy,
   revisionHistory,
+  revisionProject,
   projectAccess,
   researchRpc,
   downloadResearchResult,
@@ -66,6 +67,7 @@ export function ResearchDashboard({
     queryFn: workspaceIndex,
     enabled: open,
     retry: 0,
+    staleTime: 15000,
   });
   const [view, setView] = useState<View>('My Projects'),
     [search, setSearch] = useState(''),
@@ -111,9 +113,16 @@ export function ResearchDashboard({
     setBusy(true);
     setError('');
     setMessage('');
+    const before = qc.getQueryState(['projects', auth.email])?.dataUpdatedAt;
     try {
       await work();
-      await qc.invalidateQueries({ queryKey: ['projects'] });
+      if (qc.getQueryState(['projects', auth.email])?.dataUpdatedAt === before)
+        await qc.invalidateQueries({ queryKey: ['projects'], refetchType: 'none' });
+      await qc.fetchQuery({
+        queryKey: ['projects', auth.email],
+        queryFn: workspaceIndex,
+        staleTime: 15000,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -156,7 +165,13 @@ export function ResearchDashboard({
     return saved;
   }
   async function refreshSelected(id: string) {
-    const index = await workspaceIndex();
+    // Share the refetch with the dashboard instead of independently fetching all eight tables.
+    await qc.invalidateQueries({ queryKey: ['projects'], refetchType: 'none' });
+    const index = await qc.fetchQuery({
+      queryKey: ['projects', auth.email],
+      queryFn: workspaceIndex,
+      staleTime: 15000,
+    });
     const p = index.projects.find((p) => p.id === id);
     if (p) await inspect(p);
   }
@@ -397,7 +412,7 @@ export function ResearchDashboard({
           {query.error.message}
         </p>
       ) : null}
-      {views.slice(0, 5).includes(view) && (
+      {view !== 'Recent Experiments' && view !== 'Saved Network Templates' && view !== 'Teams' && (
         <>
           <div className="saved-project-list">
             {projects.map((p) => (
@@ -854,7 +869,7 @@ export function ResearchDashboard({
               onRename={async (name) => {
                 await saveMetadata(selected.config, { name });
                 await refreshSelected(selected.id);
-                await qc.invalidateQueries({ queryKey: ['projects'] });
+                // refreshSelected already refreshed the workspace index.
               }}
             />
             <Button
@@ -913,8 +928,12 @@ export function ResearchDashboard({
               </Button>
               <Button
                 size="sm"
+                disabled={busy}
                 onClick={() =>
-                  openProject(freshCopy(r.config, `${r.config.name} revision ${r.version}`))
+                  void action(async () => {
+                    const config = await revisionProject(selected.id, r.version);
+                    openProject(freshCopy(config, config.name + ' revision ' + r.version));
+                  })
                 }
               >
                 Open copy

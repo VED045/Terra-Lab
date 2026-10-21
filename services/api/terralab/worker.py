@@ -70,14 +70,45 @@ def process(job):
     finally:
         done.set(); thread.join(timeout=2)
 
+# Notifications are coalesced. Idle waits have no timeout and issue zero database requests.
+WAKE=threading.Event()
+
+def request_stop(*_):
+    STOP.set()
+    WAKE.set()
+
 def main():
+    from .worker_wake import listen
     if cloud.mode()!='supabase' or not cloud.service_key(): raise SystemExit('Worker requires supabase mode and a server-only service credential')
-    for sig in (signal.SIGINT,signal.SIGTERM): signal.signal(sig,lambda *_:STOP.set())
+    for sig in (signal.SIGINT,signal.SIGTERM): signal.signal(sig,request_stop)
+    server=listen(WAKE)
+    WAKE.set()  # Recover already queued work once on startup, including a Render cold start.
+    try: run_queue()
+    finally:
+        server.shutdown()
+        server.server_close()
+
+def run_queue():
+    delay=None
+    failures=0
     while not STOP.is_set():
+        notified=WAKE.wait(delay)
+        WAKE.clear()
+        if notified: failures=0
+        if STOP.is_set(): return
         try:
-            job=service_rpc('claim_research_job')
-            if job: process(job)
-            else: STOP.wait(2)
+            while not STOP.is_set():
+                job=service_rpc('claim_research_job')
+                if not job: break
+                process(job)
+            if STOP.is_set(): return
+            # One-shot recovery for a known unfinished lease/locked queue item.
+            # NULL means empty queue: wait for a notification, with no timer or DB polling.
+            delay=service_rpc('research_queue_wake_delay')
+            if delay is not None: delay=max(2,float(delay))
+            failures=0
         except Exception:
-            print('Queue temporarily unavailable; retrying',flush=True); STOP.wait(5)
+            failures+=1
+            delay=min(60,5*2**(failures-1)) if failures<=5 else None
+            print('Queue temporarily unavailable; retrying pending recovery' if delay is not None else 'Queue unavailable; waiting for the next submission or restart',flush=True)
 if __name__=='__main__': main()

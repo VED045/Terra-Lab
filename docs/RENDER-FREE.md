@@ -2,6 +2,10 @@
 
 The Docker image now starts a supervisor. Set TERRALAB_RUN_WORKER=1 to run the API and one science worker together. Both stop if either process exits. The worker secret is removed from the API child environment. Supabase retains jobs and immutable result artifacts; no local worker or Render disk is needed.
 
+The worker is notification-driven: experiment submission wakes it over a private, authenticated loopback channel. It drains the durable queue and then waits without querying Supabase. The supervisor configures this channel automatically; there are no new Render environment variables. Five-second lease heartbeats occur only while an experiment is running. An unfinished lease schedules a one-shot recovery wake. Startup checks the queue once; database failures have five bounded retries and then wait for a new submission/restart.
+
+Apply migration 007 after 006 before deploying this worker version. It adds the service-only scheduling hint, bounded expiry maintenance, query indexes and safe handling of identical stale save retries. If a wake notification fails after enqueue commits, the API reports 503; retry the same submission with its retained idempotency key. A direct SQL enqueue is not a notification: use the application/API submission path or restart the service to drain such work.
+
 ## Existing Render Web Service
 
 1. Wait for the updated main branch to appear in GitHub. In Render open your existing Docker Web Service, select main, repository root (leave Root Directory empty), Dockerfile ./Dockerfile, Singapore, Free.
@@ -15,12 +19,12 @@ The Docker image now starts a supervisor. Set TERRALAB_RUN_WORKER=1 to run the A
 
 ## Free-plan behavior
 
-Render Free Web Services sleep after 15 minutes without inbound traffic. Worker polling Supabase does not keep the service awake. Opening the app and submitting/polling a job wakes the API; cold starts can take about a minute and the first request can time out, so retry after it wakes. A queued job waits while the service sleeps; an interrupted job uses the existing lease/retry recovery when it next runs. One small CPU and 512 MB are suitable for short demos, not heavy Monte Carlo runs; existing cloud limits and 120-second worker compute bounds still apply. There is no uptime guarantee, persistent local disk or always-on queue processing.
+Render Free Web Services sleep after 15 minutes without inbound traffic. The idle worker makes no recurring database calls and does not keep the service awake. Opening the app and submitting/polling a job wakes the API; cold starts can take about a minute and the first request can time out, so retry after it wakes. A queued job waits while the service sleeps; an interrupted job uses the existing lease/retry recovery when it next runs. One small CPU and 512 MB are suitable for short demos, not heavy Monte Carlo runs; existing cloud limits and 120-second worker compute bounds still apply. There is no uptime guarantee, persistent local disk or always-on queue processing.
 
-For a new optional Blueprint use render.free.yaml (one free Web Service). render.yaml retains the separate paid API/worker layout. Do not create both unless you intend to operate both setups.
+For a new optional Blueprint use render.free.yaml (one free Web Service). render.yaml is a paid combined-service alternative using the same notification path; it no longer creates a separate polling worker. Do not create both unless you intend to operate both setups.
 
 ## Verification
 
-npm run test:combined runs the actual supervisor, FastAPI and numerical worker against PostgreSQL migrations/RLS and local Auth/Storage protocol fixtures, with a fixture sb_secret_ key. It checks idempotency, outsider denial, publication hashes and all 18 noiseless epochs. This is local integration evidence, not a hosted Supabase or Render acceptance claim.
+npm run test:combined runs the actual supervisor, FastAPI and numerical worker against PostgreSQL migrations/RLS and local Auth/Storage protocol fixtures, with a fixture sb_secret_ key. It checks idempotency, outsider denial, publication hashes, all 18 noiseless epochs, no recurring idle claims, and successful notification of a second experiment after idle. This is local integration evidence, not a hosted Supabase or Render acceptance claim.
 
 References: https://render.com/docs/free and https://supabase.com/docs/guides/api/api-keys

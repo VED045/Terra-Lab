@@ -31,8 +31,13 @@ export function observeAuthSession(
   }
   let active = true;
   let revision = 0;
-  const apply = (session: Session | null) =>
+  let identity: string | undefined;
+  const apply = (session: Session | null) => {
+    const next = JSON.stringify([session?.user.id, session?.user.email, Boolean(session)]);
+    if (next === identity) return;
+    identity = next;
     update({ status: session ? 'signed-in' : 'signed-out', email: session?.user.email ?? null });
+  };
   update({ status: 'checking', email: null });
   const initialRevision = revision;
   const { data } = db.auth.onAuthStateChange((_, session) => {
