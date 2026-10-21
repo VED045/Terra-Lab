@@ -89,6 +89,7 @@ kbd {
   color: var(--muted);
 }
 .studio,
+.collab-page,
 .research-page,
 .dialog-content,
 .tooltip {
@@ -123,6 +124,7 @@ kbd {
   background: var(--bg);
 }
 .studio.theme-light,
+.collab-page.theme-light,
 .research-page.theme-light,
 .dialog-content.theme-light,
 .tooltip.theme-light {
@@ -156,7 +158,7 @@ kbd {
   --shadow: 0 12px 40px #34445418;
 }
 /* Additional palettes use one accent hue with tonal surfaces. */
-:is(.studio, .research-page, .dialog-content, .tooltip).theme-mono-dark {
+:is(.studio, .collab-page, .research-page, .dialog-content, .tooltip).theme-mono-dark {
   color-scheme: dark;
   --bg: #101010;
   --panel: #161616;
@@ -186,7 +188,7 @@ kbd {
   --primary-hover: #f0f0f0;
   --shadow: 0 12px 40px #00000066;
 }
-:is(.studio, .research-page, .dialog-content, .tooltip).theme-mono-light {
+:is(.studio, .collab-page, .research-page, .dialog-content, .tooltip).theme-mono-light {
   color-scheme: light;
   --bg: #fafafa;
   --panel: #f6f6f6;
@@ -216,7 +218,7 @@ kbd {
   --primary-hover: #202020;
   --shadow: 0 12px 40px #00000028;
 }
-:is(.studio, .research-page, .dialog-content, .tooltip).theme-midnight {
+:is(.studio, .collab-page, .research-page, .dialog-content, .tooltip).theme-midnight {
   color-scheme: dark;
   --bg: #0c1424;
   --panel: #121a29;
@@ -246,7 +248,7 @@ kbd {
   --primary-hover: #9abdff;
   --shadow: 0 12px 40px #00000066;
 }
-:is(.studio, .research-page, .dialog-content, .tooltip).theme-forest {
+:is(.studio, .collab-page, .research-page, .dialog-content, .tooltip).theme-forest {
   color-scheme: dark;
   --bg: #0f1b16;
   --panel: #15211c;
@@ -276,7 +278,7 @@ kbd {
   --primary-hover: #9bdbb8;
   --shadow: 0 12px 40px #00000066;
 }
-:is(.studio, .research-page, .dialog-content, .tooltip).theme-amber {
+:is(.studio, .collab-page, .research-page, .dialog-content, .tooltip).theme-amber {
   color-scheme: dark;
   --bg: #1c1710;
   --panel: #221d16;
@@ -306,7 +308,7 @@ kbd {
   --primary-hover: #ecc581;
   --shadow: 0 12px 40px #00000066;
 }
-:is(.studio, .research-page, .dialog-content, .tooltip).theme-violet {
+:is(.studio, .collab-page, .research-page, .dialog-content, .tooltip).theme-violet {
   color-scheme: dark;
   --bg: #1a1524;
   --panel: #201b29;
@@ -336,7 +338,7 @@ kbd {
   --primary-hover: #caaff1;
   --shadow: 0 12px 40px #00000066;
 }
-:is(.studio, .research-page, .dialog-content, .tooltip).theme-rose {
+:is(.studio, .collab-page, .research-page, .dialog-content, .tooltip).theme-rose {
   color-scheme: light;
   --bg: #faf3f4;
   --panel: #f6eff0;
@@ -366,7 +368,7 @@ kbd {
   --primary-hover: #893956;
   --shadow: 0 12px 40px #00000028;
 }
-:is(.studio, .research-page, .dialog-content, .tooltip).theme-sand {
+:is(.studio, .collab-page, .research-page, .dialog-content, .tooltip).theme-sand {
   color-scheme: light;
   --bg: #faf6ed;
   --panel: #f6f2e9;
@@ -3265,14 +3267,51 @@ code {
   }
 }
 
-.action-help-target { display: inline-flex; align-items: center; }
-.tooltip { max-width: min(340px, 90vw); line-height: 1.5; }
-.parameter-help { color: var(--muted); font-size: 11px; line-height: 1.6; }
-.duration-presets { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
-.rename-form { display:grid; gap:12px; }
-.rename-form input { background:var(--bg); color:var(--text); border:1px solid var(--border); padding:10px; width:100%; }
+.action-help-target {
+  display: inline-flex;
+  align-items: center;
+}
+.tooltip {
+  max-width: min(340px, 90vw);
+  line-height: 1.5;
+}
+.parameter-help {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.duration-presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.rename-form {
+  display: grid;
+  gap: 12px;
+}
+.rename-form input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px;
+  width: 100%;
+}
 
-.research-detail svg[role='img'] { display:block; width:100%; max-height:320px; }
-.research-detail pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:300px; overflow:auto; }
+.research-detail svg[role='img'] {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+}
+.research-detail pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 300px;
+  overflow: auto;
+}
 
-.comparison-charts svg { display:block; width:100%; max-height:320px; }
+.comparison-charts svg {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+}

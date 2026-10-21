@@ -55,3 +55,17 @@ If WebGL is unavailable or the graphics context is lost, choose Return to 2D. Yo
 - Imported experiment snapshots are labelled locally and retain their original data. Import labels are provenance notes, not attestation.
 - 3D **Saved view presets** retain canonical camera preset/projection, units and layers separately from projects. Free-orbit camera pose is not saved. View presets are browser-local and never change scientific configurations.
 - Recorded collaboration activity begins when server logging is installed. It is a history feed with actor/time/resource references, not real-time notifications or a backfilled audit of earlier work. Offline report generation cannot be observed by the server; uploaded derivatives are labelled artifact-recorded events.
+
+## Collaboration center
+
+Open **Collaboration** from the main navigation. In **People**, save an optional unique username and discovery preferences; find peers using an exact username or permitted verified email. To offer a studio, create a workspace in **Manage access**, designate it in your peer profile, and explicitly assign projects to it. Studio membership includes only those assigned projects.
+
+Use **Request studio access**, choose Viewer or Editor, review the recipient/scope and send. The owner reviews it in **Requests & Invitations** and explicitly accepts (confirming the approved role) or rejects it; requesters may withdraw pending items. Pending items grant nothing.
+
+Use **Invite people** to select an owned studio, team or project, find/add eligible peers, choose a role and review before sending. These are in-app offers; no email is sent. Recipients accept or reject them in Collaboration. Offers expire after seven days; owners can revoke or renew them. Existing invitation links can also be accepted there.
+
+**Shared with me** lists only currently accessible resources and their effective roles. **Manage access** shows direct and inherited membership, role changes, removal, pending items and reusable project/research links. Removing one grant may leave independent team access. Revoke invitation links separately; previously downloaded copies cannot be recalled. Notifications and their read state are in **Overview**. See [Collaboration documentation](collaboration/OVERVIEW.md).
+
+## Project library and blank projects
+
+**Home** shows the research dashboard. **Projects** opens the project library and clears earlier search/filter selections so your projects are visible. Use **New Project** for a blank canvas with no transmitters, receivers, obstacles or trajectories, or select a starter in **Starting network**. The new project keeps your workspace theme. Add your own objects using the studio tools.

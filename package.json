@@ -23,7 +23,8 @@
     "test:combined": "node scripts/test-cloud-worker.mjs --combined",
     "test:e2e:auth": "node scripts/test-auth-browser.mjs",
     "brand:generate": "node scripts/generate-brand-assets.mjs",
-    "test:production": "node scripts/test-production-scene.mjs"
+    "test:production": "node scripts/test-production-scene.mjs",
+    "test:collaboration": "node scripts/test-collaboration.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",

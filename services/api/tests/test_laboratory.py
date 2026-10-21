@@ -270,3 +270,30 @@ def test_job_cancellation_and_execution_failure(tmp_path,monkeypatch):
         if status['status']=='failed':break
         time.sleep(.01)
     assert status['status']=='failed' and status['error']=='Injected job failure'
+
+
+def test_terminal_checkpoint_cannot_be_republished_after_completion(tmp_path,monkeypatch):
+    import threading
+    from terralab import experiments as jobs
+    monkeypatch.setattr(jobs,'DATA',tmp_path)
+    original=jobs.execute
+    published=threading.Event(); release=threading.Event()
+    def delayed_return(*args):
+        result=original(*args)
+        published.set()
+        assert release.wait(3)
+        return result
+    monkeypatch.setattr(jobs,'execute',delayed_return)
+    identity=jobs.start_job(Request(project=network(),config=config(trials=2)))
+    try:
+        assert published.wait(3)
+        result=jobs.read_job(identity,True)
+        assert result['status']=='completed'
+        with jobs.LOCK: del jobs.JOBS[identity]
+        # Simulate the durable restart state after terminal output was observed.
+        interrupted=dict(result,status='running')
+        (tmp_path/(identity+'.json')).write_text(json.dumps(interrupted))
+    finally:
+        release.set()
+        jobs.POOL.submit(lambda:None).result(timeout=3)
+    assert jobs.read_job(identity)['status']=='interrupted'

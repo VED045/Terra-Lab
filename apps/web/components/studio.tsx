@@ -78,6 +78,7 @@ import { ResearchDashboard } from './research-dashboard';
 import { NetworkLogo } from './network-logo';
 import { useSceneView } from '@/lib/scene-view';
 import { workspaceIndex } from '@/lib/research';
+import { projectContent } from '@/lib/project-content';
 import { SignalDialog } from './signal-dialog';
 import { ShareDialog } from './share-dialog';
 import { LaboratoryDialog } from './laboratory-dialog';
@@ -85,6 +86,7 @@ import { LaboratoryPreviewFacts } from './laboratory-preview';
 import { useLabView } from '@/lib/lab-view';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
+import { CollaborationLink } from './collaboration-link';
 import { Tool } from './ui/tool';
 import { RenameProject } from './rename-project';
 import { ConflictDialog } from './conflict-dialog';
@@ -156,6 +158,8 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
     [workspace],
   );
   const [apiResult, setApiResult] = useState<Solution | null>(null);
+  const baselineContent = useMemo(() => projectContent(project), [project]);
+  const baselineSelection = JSON.stringify(selected);
   const [hydrated, setHydrated] = useState(false);
   const mounted = useRef(false);
   const qc = useQueryClient();
@@ -283,7 +287,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
   }, [notice]);
   useEffect(() => {
     setApiResult(null);
-  }, [project, time, selected]);
+  }, [baselineContent, time, baselineSelection]);
   useEffect(() => {
     if (playing) useLabView.getState().clear();
   }, [playing]);
@@ -393,7 +397,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
     const live = solveProject(project, receiver, time);
     return apiResult ? { ...live, solution: apiResult, error: null } : live;
   }, [project, receiver, time, apiResult]);
-  const runSnapshot = useRef<{ project: typeof project; time: number } | null>(null);
+  const runSnapshot = useRef<{ content: string; time: number; selection: string } | null>(null);
   // Recompute from deterministic timestamps; scrubbing yields exactly the same samples.
   const samples = useMemo(() => {
     return receiver ? simulationSamples(project, receiver, time) : [];
@@ -401,7 +405,11 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
   const run = useMutation({
     mutationFn: async () => {
       const state = useStudio.getState();
-      runSnapshot.current = { project: state.project, time: state.time };
+      runSnapshot.current = {
+        content: projectContent(state.project),
+        time: state.time,
+        selection: JSON.stringify(state.selected),
+      };
       if (!result) throw Error('Add an enabled receiver first');
       if (result.error) throw Error(result.error);
       if (state.project.settings.engine === 'browser') return result.solution!;
@@ -418,7 +426,8 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
     onSuccess: (r) => {
       const state = useStudio.getState();
       if (
-        runSnapshot.current?.project !== state.project ||
+        runSnapshot.current?.content !== projectContent(state.project) ||
+        runSnapshot.current?.selection !== JSON.stringify(state.selected) ||
         runSnapshot.current?.time !== state.time
       ) {
         log(
@@ -512,6 +521,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
           <NetworkLogo size={32} />
         </button>
         <div className="rail-top">
+          <CollaborationLink compact />
           <Tool label="Network studio" active onClick={() => setProjectsOpen(false)}>
             <Network size={21} />
           </Tool>

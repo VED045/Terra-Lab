@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowRight,
@@ -14,6 +15,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   templates,
   createTemplate,
+  createBlankProject,
   deserializeProject,
   serializeProject,
   type Project,
@@ -28,7 +30,6 @@ import {
   freshCopy,
   revisionHistory,
   revisionProject,
-  projectAccess,
   researchRpc,
   downloadResearchResult,
   configurationDiff,
@@ -56,7 +57,7 @@ const views = [
   'Saved Network Templates',
   'Teams',
 ] as const;
-export type View = (typeof views)[number];
+export type View = (typeof views)[number] | 'Home';
 export function ResearchDashboard({
   open,
   onOpenChange,
@@ -81,7 +82,7 @@ export function ResearchDashboard({
     retry: 0,
     staleTime: 15000,
   });
-  const [view, setView] = useState<View>('My Projects'),
+  const [view, setView] = useState<View>(embedded ? 'Home' : 'My Projects'),
     [search, setSearch] = useState(''),
     [sort, setSort] = useState('recent'),
     [ownerFilter, setOwnerFilter] = useState(''),
@@ -93,16 +94,8 @@ export function ResearchDashboard({
     [error, setError] = useState(''),
     [message, setMessage] = useState('');
   const [selected, setSelected] = useState<ProjectRow | null>(null),
-    [revisions, setRevisions] = useState<Awaited<ReturnType<typeof revisionHistory>>>([]),
-    [access, setAccess] = useState<Awaited<ReturnType<typeof projectAccess>> | null>(null);
-  const [userId, setUserId] = useState(''),
-    [role, setRole] = useState('viewer'),
-    [teamId, setTeamId] = useState(''),
-    [teamName, setTeamName] = useState('');
-  const [shareKind, setShareKind] = useState('project'),
-    [shareTarget, setShareTarget] = useState(''),
-    [shareUrl, setShareUrl] = useState(''),
-    [invitation, setInvitation] = useState('');
+    [revisions, setRevisions] = useState<Awaited<ReturnType<typeof revisionHistory>>>([]);
+  const [invitation, setInvitation] = useState('');
   const [runs, setRuns] = useState<ExperimentResult[]>([]),
     [compare, setCompare] = useState<string[]>([]);
   const data = query.data;
@@ -116,17 +109,25 @@ export function ResearchDashboard({
   }, [embedded, selected?.id]);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('Untitled research project');
-  const [newTemplate, setNewTemplate] = useState('square');
+  const [newTemplate, setNewTemplate] = useState('blank');
   function chooseView(next: View) {
     setView(next);
     setSelected(null);
+    if (next === 'My Projects' || next === 'Home') {
+      setSearch('');
+      setOwnerFilter('');
+      setTeamFilter('');
+      setTypeFilter('');
+      setSinceFilter('');
+      setStatusFilter('');
+    }
   }
   function exportProject() {
     downloadFile(
       new File([serializeProject(project)], 'terralab-project.json', { type: 'application/json' }),
     );
   }
-  function startProject(template = 'square') {
+  function startProject(template = 'blank') {
     setError('');
     setNewTemplate(template);
     setNewName(
@@ -184,14 +185,10 @@ export function ResearchDashboard({
   }
   async function inspect(row: ProjectRow) {
     setSelected(row);
-    setTeamId(row.team_id || '');
     setRevisions([]);
-    setAccess(null);
-    setShareUrl('');
     if (data?.userId) {
-      const [r, a] = await Promise.all([revisionHistory(row.id), projectAccess(row.id)]);
+      const r = await revisionHistory(row.id);
       setRevisions(r);
-      setAccess(a);
     }
   }
   async function saveMetadata(config: Project, patch: Partial<Pick<Project, 'name' | 'archived'>>) {
@@ -411,7 +408,7 @@ export function ResearchDashboard({
       </details>
       {embedded && (
         <div className="dashboard-panel-heading">
-          <h2>{view === 'My Projects' ? 'Projects' : view}</h2>
+          <h2>{view === 'My Projects' || view === 'Home' ? 'Projects' : view}</h2>
           <Button variant="default" onClick={() => startProject()}>
             <Plus size={16} />
             New Project
@@ -425,7 +422,7 @@ export function ResearchDashboard({
         ).map((v) => (
           <button
             key={v}
-            className={v === view ? 'active' : ''}
+            className={v === view || (v === 'My Projects' && view === 'Home') ? 'active' : ''}
             onClick={() => {
               setView(v);
               setSelected(null);
@@ -865,96 +862,18 @@ export function ResearchDashboard({
       {view === 'Teams' && (
         <section className="research-detail">
           <h3>Team workspaces</h3>
-          <p>
-            Team owners manage membership. Editors can version and run team projects; viewers can
-            inspect and export. Project ownership remains explicit.
-          </p>
-          <div className="research-inline">
-            <input
-              aria-label="New team name"
-              maxLength={80}
-              placeholder="New team name"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-            />
-            <Button
-              disabled={busy || !teamName.trim()}
-              onClick={() =>
-                void action(async () => {
-                  await researchRpc('create_research_team', { p_name: teamName });
-                  setTeamName('');
-                })
-              }
-            >
-              Create team
-            </Button>
-          </div>
+          <p>Collaboration manages invitations, team membership and permissions.</p>
+          <Button asChild>
+            <Link href="/collaboration?section=Manage%20access">Open Collaboration</Link>
+          </Button>
           {data?.teams.map((t) => (
             <div className="research-project" key={t.id}>
-              <b className="project-open">
-                {t.name}
-                <small>
-                  {t.id} · {t.owner_id === data.userId ? 'owner' : 'member'}
-                </small>
-              </b>
-              <Button onClick={() => setTeamId(t.id)}>Manage</Button>
+              <b className="project-open">{t.name}</b>
+              <Link href={'/collaboration?section=Manage%20access&resource=' + t.id}>
+                Manage access
+              </Link>
             </div>
           ))}
-          <div className="research-inline">
-            <select
-              aria-label="Manage team"
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-            >
-              <option value="">Select team</option>
-              {data?.teams.map((t) => (
-                <option value={t.id} key={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <input
-              aria-label="Member user ID"
-              placeholder="Member user UUID (from their profile)"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-            />
-            <select aria-label="Member role" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option>viewer</option>
-              <option>editor</option>
-            </select>
-            <Button
-              disabled={busy || !teamId}
-              onClick={() =>
-                void action(async () => {
-                  await researchRpc('manage_team_member', {
-                    p_team: teamId,
-                    p_user: userId,
-                    p_role: role,
-                  });
-                  setMessage('Team member saved.');
-                })
-              }
-            >
-              Set member
-            </Button>
-            <Button
-              disabled={busy || !teamId}
-              onClick={() =>
-                void action(async () => {
-                  await researchRpc('manage_team_member', {
-                    p_team: teamId,
-                    p_user: userId,
-                    p_role: null,
-                  });
-                  setMessage('Team member removed.');
-                })
-              }
-            >
-              Remove member
-            </Button>
-          </div>
-          {teamId && <TeamMembers teamId={teamId} />}
         </section>
       )}
       {selected && (
@@ -1087,236 +1006,23 @@ export function ResearchDashboard({
           {selected.role === 'owner' && data?.userId && (
             <>
               <h4>Sharing and ownership</h4>
-              <p>
-                Invitations expire after seven days and require sign-in. Revoking a link stops new
-                acceptance; remove an existing member separately. Accepted invitations grant project
-                access, including its experiments and exports. A read-only recipient can retain
-                downloaded copies.
-              </p>
-              <p role="status">
-                Permission preview:{' '}
-                {role === 'editor' && shareKind === 'project'
-                  ? 'Editors can save revisions and run experiments, and read/export the full project history. They cannot transfer ownership or grant access.'
-                  : 'Viewers can read and export the project, revisions and experiment history. They cannot save revisions or start jobs.'}{' '}
-                Existing team/direct grants may provide greater access. No public access is enabled
-                by creating an invitation.
-              </p>
-              <div className="research-inline">
-                <select
-                  aria-label="Share kind"
-                  value={shareKind}
-                  onChange={(e) => {
-                    setShareKind(e.target.value);
-                    if (e.target.value !== 'project') setRole('viewer');
-                    setShareTarget('');
-                  }}
-                >
-                  {['project', 'template', 'configuration', 'experiment', 'report'].map((k) => (
-                    <option key={k}>{k}</option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Share role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                >
-                  <option>viewer</option>
-                  {shareKind === 'project' && <option>editor</option>}
-                </select>
-                {['template', 'experiment', 'report'].includes(shareKind) && (
-                  <select
-                    aria-label="Shared resource"
-                    value={shareTarget}
-                    onChange={(e) => setShareTarget(e.target.value)}
-                  >
-                    <option value="">Choose saved resource</option>
-                    {(shareKind === 'template'
-                      ? data.templates
-                          .filter((t) => t.project_id === selected.id)
-                          .map((t) => ({ id: t.id, name: t.name }))
-                      : data.runs
-                          .filter((r) => r.project_id === selected.id)
-                          .map((r) => ({ id: r.id, name: `${r.created_at} ${r.status}` }))
-                    ).map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <Button
-                  disabled={busy}
-                  onClick={() =>
-                    void action(async () => {
-                      const token = await researchRpc<string>('create_research_share', {
-                        p_id: selected.id,
-                        p_role: shareKind === 'project' ? role : 'viewer',
-                        p_kind: shareKind,
-                        p_target: shareTarget || null,
-                      });
-                      setShareUrl(`${location.origin}/#invite=${token}`);
-                      await refreshSelected(selected.id);
-                      setShareUrl(`${location.origin}/#invite=${token}`);
-                    })
-                  }
-                >
-                  Create invitation
-                </Button>
-              </div>
-              {shareUrl && (
-                <label className="research-link">
-                  Copy invitation URL
-                  <input readOnly value={shareUrl} onFocus={(e) => e.target.select()} />
-                </label>
-              )}
-              {access?.links.map((l) => (
-                <div className="research-project" key={l.id}>
-                  <span className="project-open">
-                    {l.kind} · {l.role} ·{' '}
-                    {l.revoked
-                      ? 'revoked'
-                      : `expires ${new Date(l.expires_at).toLocaleDateString()}`}
-                  </span>
-                  <Button
-                    disabled={busy || l.revoked}
-                    onClick={() =>
-                      void action(async () => {
-                        await researchRpc('revoke_research_share', { p_id: l.id });
-                        await refreshSelected(selected.id);
-                      })
-                    }
-                  >
-                    Revoke
-                  </Button>
-                </div>
-              ))}
-              <div className="research-inline">
-                <input
-                  aria-label="Project member UUID"
-                  placeholder="Research peer user UUID"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                />
-                <select
-                  aria-label="Project member role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                >
-                  <option>viewer</option>
-                  <option>editor</option>
-                </select>
-                <Button
-                  disabled={busy}
-                  onClick={() =>
-                    void action(async () => {
-                      await researchRpc('manage_project_member', {
-                        p_id: selected.id,
-                        p_user: userId,
-                        p_role: role,
-                      });
-                      await refreshSelected(selected.id);
-                    })
-                  }
-                >
-                  Set access
-                </Button>
-              </div>
-              {access?.members.map((m) => (
-                <div className="research-project" key={m.user_id}>
-                  <span className="project-open">
-                    {m.user_id} · {m.role}
-                  </span>
-                  <Button
-                    disabled={busy}
-                    onClick={() =>
-                      void action(async () => {
-                        await researchRpc('manage_project_member', {
-                          p_id: selected.id,
-                          p_user: m.user_id,
-                          p_role: null,
-                        });
-                        await refreshSelected(selected.id);
-                      })
-                    }
-                  >
-                    Remove access
-                  </Button>
-                </div>
-              ))}
-              <div className="research-inline">
-                <select
-                  aria-label="Project team workspace"
-                  value={teamId}
-                  onChange={(e) => setTeamId(e.target.value)}
-                >
-                  <option value="">Private workspace (no team)</option>
-                  {data.teams
-                    .filter((t) => t.owner_id === data.userId)
-                    .map((t) => (
-                      <option value={t.id} key={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                </select>
-                <Button
-                  disabled={busy}
-                  onClick={() =>
-                    void action(async () => {
-                      await researchRpc('assign_project_team', {
-                        p_id: selected.id,
-                        p_team: teamId || null,
-                        p_expected: selected.version,
-                      });
-                      await refreshSelected(selected.id);
-                      setMessage(
-                        'Team assignment saved. Reload the project before editing its next revision.',
-                      );
-                    })
-                  }
-                >
-                  Assign team
-                </Button>
-              </div>
+              <p>Manage members, invitations and workspace assignment in Collaboration.</p>
+              <Button asChild>
+                <Link href={'/collaboration?section=Manage%20access&resource=' + selected.id}>
+                  Manage access in Collaboration
+                </Link>
+              </Button>
             </>
           )}
         </section>
       )}
-      <details
-        className="research-detail dashboard-invitation"
-        open={invitation ? true : undefined}
-      >
-        <summary>Accept a research invitation</summary>
-        <div className="research-inline">
-          <input
-            aria-label="Research invitation"
-            placeholder="Paste invitation URL or token"
-            value={invitation}
-            onChange={(e) => setInvitation(e.target.value)}
-          />
-          <Button
-            disabled={busy || !invitation}
-            onClick={() =>
-              void action(async () => {
-                let token = invitation.trim();
-                if (token.includes('#'))
-                  token = new URLSearchParams(token.split('#')[1]).get('invite') || '';
-                const accepted = await researchRpc<{
-                  projectId: string;
-                  kind: string;
-                  targetId: string | null;
-                }>('redeem_research_share', { p_token: token });
-                setInvitation('');
-                setView('Shared With Me');
-                setMessage(
-                  `Accepted ${accepted.kind} invitation. Open the shared project or its saved experiment in Recent Experiments.`,
-                );
-              })
-            }
-          >
-            Accept invitation
-          </Button>
-        </div>
-      </details>
+      {invitation && (
+        <p>
+          <Link href={'/collaboration#invite=' + encodeURIComponent(invitation)}>
+            Review invitation in Collaboration
+          </Link>
+        </p>
+      )}
     </>
   );
   const newProjectDialog = (
@@ -1324,7 +1030,7 @@ export function ResearchDashboard({
       open={createOpen}
       onOpenChange={setCreateOpen}
       title="New research project"
-      description="Give your project a name and choose a starting network."
+      description="Start with a blank canvas for full control, or choose an existing starter network."
     >
       <form
         className="dashboard-create-form"
@@ -1337,7 +1043,8 @@ export function ResearchDashboard({
               !confirm('Create a new project? Save or export the current unsaved edits first.')
             )
               return;
-            const next = createTemplate(newTemplate);
+            const next =
+              newTemplate === 'blank' ? createBlankProject() : createTemplate(newTemplate);
             next.name = newName.trim();
             next.canvas.theme = useStudio.getState().project.canvas.theme;
             const saved = await saveProject(next);
@@ -1367,6 +1074,7 @@ export function ResearchDashboard({
             value={newTemplate}
             onChange={(e) => setNewTemplate(e.target.value)}
           >
+            <option value="blank">Blank canvas — no starter network</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -1470,33 +1178,6 @@ export function ResearchDashboard({
     </Dialog>
   );
 }
-function TeamMembers({ teamId }: { teamId: string }) {
-  const q = useQuery({
-    queryKey: ['projects', 'team-members', teamId],
-    queryFn: async () => {
-      const { data, error } = await supabase()!
-        .from('team_members')
-        .select('user_id,role')
-        .eq('team_id', teamId);
-      if (error) throw Error(error.message);
-      return data;
-    },
-  });
-  return (
-    <div>
-      {q.error ? (
-        <p role="alert">{q.error.message}</p>
-      ) : (
-        q.data?.map((m) => (
-          <p key={m.user_id}>
-            {m.user_id} · {m.role}
-          </p>
-        ))
-      )}
-    </div>
-  );
-}
-
 function ProjectActions({
   compact,
   name,

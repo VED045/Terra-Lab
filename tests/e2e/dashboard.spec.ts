@@ -153,3 +153,79 @@ test('responsive navigation, project rows and theme controls fit mobile and tabl
   await page.setViewportSize({ width: 1024, height: 768 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1024);
 });
+
+test('Projects opens a distinct library and resets stale search and filters', async ({ page }) => {
+  await page.goto('/projects');
+  const nav = page.getByRole('navigation', { name: 'Research navigation' });
+  await expect(nav.getByRole('button', { name: 'Home', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await nav.getByRole('button', { name: 'My Projects', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Project library', exact: true })).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'My Projects', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expect(nav.getByRole('button', { name: 'Home', exact: true })).not.toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await page
+    .getByRole('textbox', { name: 'Search research workspace' })
+    .fill('No matching project');
+  await expect(page.locator('.research-project')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Archived Projects', exact: true }).click();
+  await nav.getByRole('button', { name: 'My Projects', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Search research workspace' })).toHaveValue('');
+  await expect(page.locator('.research-project')).toHaveCount(3);
+  await nav.getByRole('button', { name: 'Home', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Research workspace', exact: true }),
+  ).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'Home', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+});
+
+test('blank project opens empty, persists, and supports building a network from scratch', async ({
+  page,
+}, info) => {
+  await page.goto('/projects');
+  await page
+    .getByRole('combobox', { name: 'Workspace theme', exact: true })
+    .selectOption('mono-dark');
+  await page.getByRole('button', { name: 'New Project', exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'New research project', exact: true });
+  await expect(dialog.getByRole('combobox', { name: 'Starting network' })).toHaveValue('blank');
+  await dialog.getByRole('textbox', { name: 'New project name' }).fill('My blank research canvas');
+  page.once('dialog', (d) => d.accept());
+  await dialog.getByRole('button', { name: 'Create project', exact: true }).click();
+  await expect(page).toHaveURL(/\/studio$/);
+  await expect(page.getByRole('application')).toBeVisible();
+  let project = await page.evaluate(() => JSON.parse(localStorage.getItem('terralab.active.v1')!));
+  expect(project.objects).toEqual([]);
+  expect(project.canvas.theme).toBe('mono-dark');
+  await page.reload();
+  await expect(page.getByRole('application')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'My blank research canvas', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Rover 01, receiver', exact: true })).toHaveCount(
+    0,
+  );
+  await page.screenshot({ path: info.outputPath('blank-canvas.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Add transmitter (A)', exact: true }).click();
+  await page.getByRole('application').click({ position: { x: 350, y: 220 } });
+  await expect(page.getByRole('spinbutton', { name: 'X position', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Save project', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Project saved');
+  await page.reload();
+  await expect(page.getByRole('application')).toBeVisible();
+  project = await page.evaluate(() => JSON.parse(localStorage.getItem('terralab.active.v1')!));
+  expect(project.objects).toHaveLength(1);
+  expect(project.objects[0].kind).toBe('anchor');
+  expect(typeof project.objects[0].x).toBe('number');
+  expect(typeof project.objects[0].y).toBe('number');
+});

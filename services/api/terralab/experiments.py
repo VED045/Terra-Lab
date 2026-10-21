@@ -133,6 +133,9 @@ def start_job(request):
     def run():
         def update(result):
             with LOCK:
+                # execute publishes its terminal snapshot before returning. A second
+                # callback must not rewrite that durable result after it was observed.
+                if job['result']['status'] not in ['queued','running']: return
                 if result['status']=='running' and time.monotonic()-job.get('publishedAt',0)<.5: return
                 job['publishedAt']=time.monotonic()
                 job['result']=dict(deepcopy(result),id=identity)

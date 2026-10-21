@@ -23,6 +23,7 @@ import {
 import { workspaceThemes, type WorkspaceTheme, templates } from '@terralab/shared';
 import { useStudio } from '@/lib/store';
 import { NetworkLogo } from './network-logo';
+import { CollaborationLink } from './collaboration-link';
 import { Button } from './ui/button';
 import type { View } from './research-dashboard';
 
@@ -157,14 +158,16 @@ export function ResearchDashboardShell({
         id="dashboard-navigation"
         className={'dashboard-sidebar' + (menuOpen ? ' is-open' : '')}
       >
-        <button className="dashboard-brand" onClick={() => navigate('My Projects')}>
+        <button className="dashboard-brand" onClick={() => navigate('Home')}>
           <NetworkLogo size={34} />
           <span>TERRALAB</span>
         </button>
         <nav aria-label="Research navigation">
+          <CollaborationLink />
           <button
-            className={view === 'My Projects' ? 'active' : ''}
-            onClick={() => navigate('My Projects')}
+            className={view === 'Home' ? 'active' : ''}
+            aria-current={view === 'Home' ? 'page' : undefined}
+            onClick={() => navigate('Home')}
           >
             <Home size={18} />
             Home
@@ -174,7 +177,7 @@ export function ResearchDashboardShell({
               key={next}
               aria-label={next}
               aria-current={view === next ? 'page' : undefined}
-              className={view === next && next !== 'My Projects' ? 'active' : ''}
+              className={view === next ? 'active' : ''}
               onClick={() => navigate(next)}
             >
               <Icon size={18} />
@@ -263,14 +266,14 @@ export function ResearchDashboardShell({
           <div className="dashboard-main">
             <div className="dashboard-hero">
               <div>
-                <h1>Research workspace</h1>
+                <h1>{view === 'My Projects' ? 'Project library' : 'Research workspace'}</h1>
                 <p>Your projects, experiments, teams and shared research.</p>
               </div>
               <span className="dashboard-wordmark">
                 TERRALAB<small>SIMULATE · ANALYZE · COLLABORATE</small>
               </span>
             </div>
-            {demo}
+            {view === 'Home' && demo}
             <div className="dashboard-stats">
               {cards.map(({ label, value, caption, icon: Icon, tone, view: next }) => (
                 <button

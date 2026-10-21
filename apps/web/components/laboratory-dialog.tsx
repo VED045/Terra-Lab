@@ -36,7 +36,7 @@ import { NumberField } from './ui/number-field';
 import { LaboratoryCharts, LaboratoryObservations, labFormat as fmt } from './laboratory-charts';
 import { LaboratoryObjectControls } from './laboratory-object-controls';
 import { PublicationDialog } from './publication-dialog';
-import { saveProject } from '@/lib/persistence';
+import { saveProject, supabase } from '@/lib/persistence';
 import { laboratoryWorkload } from '@/lib/lab-workload';
 import { ImportedSnapshotNotice } from './imported-snapshot-notice';
 const terminal = (status: string) => !['queued', 'running'].includes(status);
@@ -191,7 +191,9 @@ export function LaboratoryDialog({
           setActive(null);
           return;
         }
-        delay = status.status === 'queued' ? 5000 : 2000;
+        // Local jobs are in-memory reads; keep their completion feedback responsive.
+        // Hosted job reads retain the existing quota-conscious cadence.
+        delay = supabase() ? (status.status === 'queued' ? 5000 : 2000) : 250;
         setResult(status);
         setFailure('');
       } catch (error) {

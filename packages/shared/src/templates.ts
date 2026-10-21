@@ -125,3 +125,15 @@ export function createTemplate(key = 'outdoor', id = crypto.randomUUID()): Proje
     },
   };
 }
+
+// Reuse the project's validated defaults without prepopulating any network objects.
+export function createBlankProject(id = crypto.randomUUID()): Project {
+  const project = createTemplate('square', id);
+  return {
+    ...project,
+    name: 'Untitled project',
+    description: '',
+    objects: [],
+    canvas: { ...project.canvas, pan: { x: 0, y: 0 } },
+  };
+}
