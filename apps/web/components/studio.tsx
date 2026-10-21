@@ -88,6 +88,7 @@ import { LaboratoryPreviewFacts } from './laboratory-preview';
 import { useLabView } from '@/lib/lab-view';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
+import { AIStudioLink } from './ai-studio-link';
 import { CollaborationLink } from './collaboration-link';
 import { Tool } from './ui/tool';
 import { RenameProject } from './rename-project';
@@ -549,6 +550,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
         </button>
         <div className="rail-top">
           <CollaborationLink compact />
+          <AIStudioLink compact />
           <Tool label="Network studio" active onClick={() => setProjectsOpen(false)}>
             <Network size={21} />
           </Tool>

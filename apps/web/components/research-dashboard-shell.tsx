@@ -23,6 +23,7 @@ import {
 import { workspaceThemes, type WorkspaceTheme, templates } from '@terralab/shared';
 import { useStudio } from '@/lib/store';
 import { NetworkLogo } from './network-logo';
+import { AIStudioLink } from './ai-studio-link';
 import { CollaborationLink } from './collaboration-link';
 import { Button } from './ui/button';
 import type { View } from './research-dashboard';
@@ -164,6 +165,7 @@ export function ResearchDashboardShell({
         </button>
         <nav aria-label="Research navigation">
           <CollaborationLink />
+          <AIStudioLink />
           <button
             className={view === 'Home' ? 'active' : ''}
             aria-current={view === 'Home' ? 'page' : undefined}

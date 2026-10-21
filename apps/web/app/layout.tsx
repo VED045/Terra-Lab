@@ -3,6 +3,7 @@ import './globals.css';
 import './research.css';
 import './scene.css';
 import './collaboration.css';
+import './ai.css';
 export const metadata: Metadata = {
   title: 'TerraLab · Network Studio',
   icons: {

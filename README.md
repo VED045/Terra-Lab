@@ -433,3 +433,16 @@ The dashboard follows your selected palette. Rename projects directly in Studio,
 Buildings, walls and obstacles support explicit width (X), footprint depth (Y), height (Z) and optional base elevation in the 3D view. Saved view presets stay separate from scientific settings.
 
 Select two to four saved experiments to compare full-data metrics, configuration differences, error CDFs, standardized residuals and selected trajectories. Export complete sources, CSV, SVG/PNG charts, a manifest and a printable report. Named report collections are browser-local references. Conflicting saves preserve your draft and offer comparison, copy and deliberate reapply workflows.
+
+## AI Studio foundation
+
+Open `/ai` from the project library or Network studio. Phase 1 provides read-only
+project explanations through your own DeepSeek API account, with optional local
+Ollama in explicit development mode. No autonomous edits or experiment execution.
+Provider credentials use an encrypted, user-bound HttpOnly cookie, never project
+metadata. No AI service is configured by default.
+
+See [provider setup](docs/ai/PROVIDER_SETUP.md),
+[architecture research](docs/ai/RESEARCH_AND_ARCHITECTURE.md),
+[security and limits](docs/ai/SECURITY_AND_LIMITS.md), and
+[Phase 1 verification](docs/ai/PHASE_1_REPORT.md).
