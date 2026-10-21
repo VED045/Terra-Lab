@@ -89,7 +89,7 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result ?? null));
   } catch (e) {
-    res.writeHead(e.code === '42501' ? 403 : e.code === '40001' ? 409 : 400, {
+    res.writeHead(e.code === '42501' ? 403 : e.code === 'PT409' ? 409 : 400, {
       'Content-Type': 'application/json',
     });
     res.end(JSON.stringify({ message: String(e.message).slice(0, 300) }));

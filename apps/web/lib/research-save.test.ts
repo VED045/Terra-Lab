@@ -26,17 +26,20 @@ beforeEach(() => {
   });
 });
 afterEach(() => vi.unstubAllEnvs());
-it('retains a plain PostgREST conflict as a useful UI Error, with the expected version', async () => {
-  rpc.mockResolvedValue({
-    data: null,
-    error: { code: '40001', message: 'VERSION_CONFLICT: reload or save a copy' },
-  });
-  await expect(saveProject({ ...createTemplate(), cloudVersion: 4 })).rejects.toThrow(
-    'VERSION_CONFLICT',
-  );
-  expect(rpc.mock.calls[0][0]).toBe('save_research_project');
-  expect(rpc.mock.calls[0][1].p_expected).toBe(4);
-});
+it.each(['PT409', '40001'])(
+  'retains a %s conflict as a useful UI Error, with the expected version',
+  async (code) => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: { code, message: 'VERSION_CONFLICT: reload or save a copy' },
+    });
+    await expect(saveProject({ ...createTemplate(), cloudVersion: 4 })).rejects.toThrow(
+      'VERSION_CONFLICT',
+    );
+    expect(rpc.mock.calls[0][0]).toBe('save_research_project');
+    expect(rpc.mock.calls[0][1].p_expected).toBe(4);
+  },
+);
 it('returns the server-authoritative owner/version for the editor to accept', async () => {
   const p = createTemplate(),
     owner = crypto.randomUUID();

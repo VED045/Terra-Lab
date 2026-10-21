@@ -1,5 +1,7 @@
 # Save conflicts and idle database traffic — 21 October 2026
 
+**Correction after live investigation:** Migration 007 retained SQLSTATE 40001 for business conflicts. On PostgREST 14 this can cause an infinite retry inside a single HTTP request, before the browser receives an error. The browser pause and idle-worker changes below remain valid, but do not fix that server loop. Apply 20261021043045_non_retryable_conflicts.sql after 007. See POSTGREST_CONFLICT_RETRY_HOTFIX.md for the live repair and verification. Earlier statements below about lack of live access describe the first implementation, before the user signed in to the dashboard.
+
 The supplied PostgreSQL log identifies an explicit VERSION_CONFLICT (40001) raised by save_research_project. It is a stale expected-version rejection, not evidence of a failed migration. Query timings and CPU metrics have not been read from the live project: the Supabase plugin is enabled, but database commands were not exposed to this chat during implementation.
 
 ## Behavior

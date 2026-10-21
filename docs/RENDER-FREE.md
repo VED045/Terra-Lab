@@ -4,7 +4,7 @@ The Docker image now starts a supervisor. Set TERRALAB_RUN_WORKER=1 to run the A
 
 The worker is notification-driven: experiment submission wakes it over a private, authenticated loopback channel. It drains the durable queue and then waits without querying Supabase. The supervisor configures this channel automatically; there are no new Render environment variables. Five-second lease heartbeats occur only while an experiment is running. An unfinished lease schedules a one-shot recovery wake. Startup checks the queue once; database failures have five bounded retries and then wait for a new submission/restart.
 
-Apply migration 007 after 006 before deploying this worker version. It adds the service-only scheduling hint, bounded expiry maintenance, query indexes and safe handling of identical stale save retries. If a wake notification fails after enqueue commits, the API reports 503; retry the same submission with its retained idempotency key. A direct SQL enqueue is not a notification: use the application/API submission path or restart the service to drain such work.
+Apply migration 007 after 006, followed by 20261021043045_non_retryable_conflicts.sql. The hotfix changes custom business-conflict errors from SQLSTATE 40001 to PT409, preventing PostgREST 14 from retrying a single rejected save indefinitely. It adds the service-only scheduling hint, bounded expiry maintenance, query indexes and safe handling of identical stale save retries. If a wake notification fails after enqueue commits, the API reports 503; retry the same submission with its retained idempotency key. A direct SQL enqueue is not a notification: use the application/API submission path or restart the service to drain such work.
 
 ## Existing Render Web Service
 

@@ -25,6 +25,15 @@ async function ok(name, fn) {
 async function denied(sql, args = []) {
   await assert.rejects(() => query(sql, args));
 }
+async function conflict(sql, args = []) {
+  await assert.rejects(
+    () => query(sql, args),
+    (error) => {
+      assert.equal(error.code, 'PT409', 'Business conflicts must not use retryable SQLSTATE 40001');
+      return true;
+    },
+  );
+}
 try {
   await db.exec(await readFile('scripts/fixtures/auth-storage.sql', 'utf8'));
   for (const name of (await readdir('supabase/migrations'))
@@ -34,6 +43,27 @@ try {
   await ok('all versioned migrations execute', async () =>
     assert.equal((await query('select count(*)::int as n from public.projects'))[0].n, 0),
   );
+  await ok('all business-conflict RPCs use final PT409 and preserve role grants', async () => {
+    const names = [
+      'save_research_project',
+      'restore_project_revision',
+      'assign_project_team',
+      'enqueue_research_job',
+    ];
+    const functions = await query(
+      "select p.oid::regprocedure::text as signature,p.proname,p.prosrc,p.prosecdef,p.proconfig,has_function_privilege('anon',p.oid,'EXECUTE') as anonymous,has_function_privilege('authenticated',p.oid,'EXECUTE') as signed_in from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname=any($1::text[])",
+      [names],
+    );
+    assert.equal(functions.length, 4);
+    for (const fn of functions) {
+      assert.equal(fn.prosrc.includes("'40001'"), false, fn.signature);
+      assert.ok(fn.prosrc.includes("'PT409'"), fn.signature);
+      assert.equal(fn.prosecdef, true);
+      assert.equal(fn.anonymous, false);
+      assert.equal(fn.signed_in, true);
+      assert.ok(fn.proconfig.some((c) => c.startsWith('search_path=')));
+    }
+  });
   await as('service_role', null);
   await ok('empty queue has no scheduled wake or periodic polling interval', async () => {
     assert.equal(
@@ -73,7 +103,7 @@ try {
     assert.equal((await query('select count(*)::int as n from public.project_revisions'))[0].n, 2),
   );
   await ok('stale save conflicts without overwriting', async () => {
-    await denied('select public.save_research_project($1::jsonb,1)', [JSON.stringify(config)]);
+    await conflict('select public.save_research_project($1::jsonb,1)', [JSON.stringify(config)]);
     assert.equal((await query('select version from public.projects'))[0].version, 2);
   });
   await ok(
@@ -96,7 +126,7 @@ try {
   await ok(
     'explicit revision restore retains strict expected-version checks even for identical content',
     async () => {
-      await denied('select public.restore_project_revision($1,2,1)', [pid]);
+      await conflict('select public.restore_project_revision($1,2,1)', [pid]);
     },
   );
   await ok('direct writes bypassing version RPC denied', () =>
@@ -178,7 +208,7 @@ try {
   await as('authenticated', owner);
   const team = (await query("select public.create_research_team('Research team') as id"))[0].id;
   await query("select public.manage_team_member($1,$2,'viewer')", [team, stranger]);
-  await denied('select public.assign_project_team($1,$2,2)', [pid, team]);
+  await conflict('select public.assign_project_team($1,$2,2)', [pid, team]);
   await query('select public.assign_project_team($1,$2,3)', [pid, team]);
   await as('authenticated', stranger);
   await ok('team viewer reads project but cannot promote self', async () => {
@@ -213,7 +243,7 @@ try {
         )[0].id,
         job,
       );
-      await denied('select public.enqueue_research_job($1::jsonb,$2)', [
+      await conflict('select public.enqueue_research_job($1::jsonb,$2)', [
         JSON.stringify({ ...request, config: { seed: 456 } }),
         key,
       ]);
@@ -594,6 +624,33 @@ try {
       100,
     );
   });
+  await db.exec('RESET ROLE');
+  await ok(
+    'hotfix can be reapplied without changing data, versions, function ownership or ACLs',
+    async () => {
+      const snapshot = await query(
+        "select p.oid,p.proowner,p.proacl,p.prosrc from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('save_research_project','restore_project_revision','assign_project_team','enqueue_research_job') order by p.oid",
+      );
+      const counts = await query(
+        'select (select count(*) from public.projects)::int as projects,(select count(*) from public.project_revisions)::int as revisions,(select count(*) from public.research_jobs)::int as jobs',
+      );
+      await db.exec(
+        await readFile('supabase/migrations/20261021043045_non_retryable_conflicts.sql', 'utf8'),
+      );
+      assert.deepEqual(
+        await query(
+          "select p.oid,p.proowner,p.proacl,p.prosrc from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('save_research_project','restore_project_revision','assign_project_team','enqueue_research_job') order by p.oid",
+        ),
+        snapshot,
+      );
+      assert.deepEqual(
+        await query(
+          'select (select count(*) from public.projects)::int as projects,(select count(*) from public.project_revisions)::int as revisions,(select count(*) from public.research_jobs)::int as jobs',
+        ),
+        counts,
+      );
+    },
+  );
   await as('authenticated', owner);
   const phase5id = crypto.randomUUID();
   const phase5base = {

@@ -85,6 +85,7 @@ for (const role of ['owner', 'editor', 'viewer'] as const)
         return route.fulfill({
           status: role === 'viewer' ? 403 : 409,
           json: {
+            code: role === 'viewer' ? '42501' : 'PT409',
             message: role === 'viewer' ? 'Edit denied' : 'VERSION_CONFLICT: reload or save a copy',
           },
         });
@@ -135,6 +136,7 @@ for (const role of ['owner', 'editor', 'viewer'] as const)
       await conflict.getByRole('button', { name: 'Close dialog', exact: true }).click();
       await expect(page.getByRole('status')).toContainText('VERSION_CONFLICT');
       await expect(x).toHaveValue('42');
+      expect(writes).toBe(1);
       const failedWrites = writes;
       await x.fill('43');
       await x.press('Enter');
@@ -150,6 +152,7 @@ for (const role of ['owner', 'editor', 'viewer'] as const)
       await conflict
         .getByRole('button', { name: 'Compare with latest revision', exact: true })
         .click();
+      expect(writes).toBe(failedWrites);
       await conflict.getByRole('checkbox', { name: 'Reapply TX-01', exact: true }).check();
       await conflict
         .getByRole('button', { name: 'Save selected changes against latest revision', exact: true })

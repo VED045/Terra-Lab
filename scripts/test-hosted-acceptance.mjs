@@ -148,7 +148,7 @@ try {
     p_expected: 1,
   });
   assert.equal(saved.cloudVersion, 2);
-  await cannot(clients.OWNER, 'save_research_project', { p_config: stale, p_expected: 1 }, '40001');
+  await cannot(clients.OWNER, 'save_research_project', { p_config: stale, p_expected: 1 }, 'PT409');
   assert.equal(await count(clients.OWNER, 'project_revisions', id), 2);
   pass('editor save and stale-owner conflict preserve immutable revisions');
   const copy = { ...stale, id: crypto.randomUUID(), name: config.name + ' copy' };
