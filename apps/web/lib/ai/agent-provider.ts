@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { AIError, type ProviderId } from './contracts';
-import { ollamaBase, providerCall, providerJson } from './providers';
+import { ollamaBase, providerCall, providerJson, localOllamaModel } from './providers';
 import type { AgentMessage, ModelTurn, ToolSpec } from './agent-contracts';
 
 const modelCall = z.object({
@@ -27,12 +27,10 @@ export async function agentTurn(
   forceInspection = false,
 ): Promise<ModelTurn> {
   const isLocal = provider === 'ollama';
+  let localThinking = false;
   if (isLocal) {
-    const details = z
-      .object({ capabilities: z.array(z.string()) })
-      .parse(
-        await providerJson(await providerCall(ollamaBase() + '/api/show', connection, { model })),
-      );
+    const details = await localOllamaModel(model, connection);
+    localThinking = details.capabilities.includes('thinking');
     if (!details.capabilities.includes('tools'))
       throw new AIError(
         'tools_unsupported',
@@ -69,7 +67,10 @@ export async function agentTurn(
     tools,
     stream: false,
     ...(isLocal
-      ? { options: { num_predict: 3000, num_ctx: 16384 } }
+      ? {
+          ...(localThinking ? { think: false } : {}),
+          options: { num_predict: 2000, num_ctx: 8192 },
+        }
       : {
           max_tokens: 3000,
           thinking: { type: 'disabled' },
@@ -79,6 +80,12 @@ export async function agentTurn(
         }),
   };
   const raw = await providerJson(await providerCall(endpoint, connection, body));
+  if (isLocal && (raw as { done_reason?: string }).done_reason === 'length')
+    throw new AIError(
+      'output_limit',
+      'The local model did not finish its bounded tool response. No tool success is assumed.',
+      422,
+    );
   const message = isLocal
     ? z.object({ message: z.unknown() }).parse(raw).message
     : z
@@ -157,7 +164,8 @@ export async function verifyAgentProvider(
                 required: ['compatible'],
                 additionalProperties: false,
               },
-              options: { num_predict: 80 },
+              think: false,
+              options: { num_predict: 1024, num_ctx: 4096 },
             }
           : {
               response_format: { type: 'json_object' },

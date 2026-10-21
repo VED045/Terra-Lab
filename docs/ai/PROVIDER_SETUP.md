@@ -1,5 +1,30 @@
 # AI Studio provider setup
 
+## Phase 3: installed free local laptop profile
+
+The 22 October 2026 laptop setup uses Ollama 0.40.7 and downloaded `deepseek-r1:8b` Q4_K_M weights (about 5.2 GB), plus `qwen3:4b-instruct-2507-q4_K_M` (about 2.5 GB) for native research tool calls. DeepSeek produced a real browser explanation, but its formal tool compatibility request timed out after 180 seconds on this laptop. It remains available in explanation mode; Qwen Instruct is a separate, visible model choice, never a silent fallback. The generic `qwen3:4b` thinking tag exhausted the chat token budget during validation; use the explicit Instruct tag shown here. No Ollama API key is required or used. The existing signed-in Ollama desktop app remains separate. TerraLab's own loopback process has `OLLAMA_NO_CLOUD=1`; its Next server has `TERRALAB_AI_FREE_LOCAL_ONLY=1`, and model metadata with `remote_model` / `remote_host` or cloud tags is rejected. These controls prevent silently routing through a paid cloud model.
+
+From the repository:
+
+```powershell
+node scripts/start-local-ai.mjs
+node scripts/start-local-ai.mjs --status
+# Later, stop only verified processes belonging to this profile:
+node scripts/start-local-ai.mjs --stop
+```
+
+Open `http://127.0.0.1:13040/ai`, select a saved local project, choose Check connection, and use the installed model. Verify tool compatibility before research-agent chat. The structured workflow controls and approved local tests do not require an LLM to invent a plan. No app startup automatically downloads a model. Your available RAM, model generation speed, context and other open applications affect latency.
+
+The profile starts Next on 13040, the existing scientific API on 18040, and an independent Ollama server on 11435, all bound to 127.0.0.1. The original Ollama app on 11434 is left alone. On this machine the older NVIDIA driver caused a CUDA runner crash. The profile selects Vulkan discrete device 1 and disables CUDA selection only in its own child environment; it does not update the graphics driver or modify other apps' GPU settings. The measured 8B model uses mixed CPU/GPU execution; it is an R1 distilled model, not the hosted V4.1 Flash model.
+
+Model files: `C:\Users\Ved\Documents\Codex\local-ai\ollama\models`. Installation/model benchmark logs: the sibling `logs` directory. Local app PIDs/logs/data: ignored `.terralab/local-ai/`. Local test snapshots/logs: ignored `.terralab/ai-tests/`, retained up to 30 jobs. The launcher uses a clean child environment and blanks known cloud/provider configuration; no production database is used for this profile. It verifies recorded process identity before stopping anything and refuses an occupied service port it does not own.
+
+The hosted setup below remains an optional general deployment capability. **It is disabled in the installed free local profile.** Do not put an Ollama key into TerraLab's DeepSeek key input; they are different services. The commands `ollama launch codex`, `ollama launch dsh` and `ollama launch opencode` start separate coding-agent integrations; TerraLab does not embed their shell/filesystem tools.
+
+Local inference has a bounded 180-second request budget; hosted inference remains bounded to 45 seconds under the existing 60-second Next route deployment cap. A local dev server is not subject to Vercel's hosted function cap. R1 may consume tokens on reasoning even when no-thinking output is requested. Token exhaustion is reported explicitly; the application does not present a truncated response as completed. Stop remains available and there is no provider fallback.
+
+The explicit Instruct tag passed a real browser explanation, native formal tool calls, structured JSON and authorized project inspection on this laptop. A successful connection check alone is not this evidence. See [TEST_PLAN.md](TEST_PLAN.md) for deterministic and opt-in live validation. Historical Phase 1/2 setup follows.
+
 Phase 2 adds the reviewed research-agent mode; the original streamed explanation-only mode remains available by unchecking **Research agent**. See [workflows](AGENT_WORKFLOWS.md), [tools and permissions](TOOLS_AND_PERMISSIONS.md), and [OpenCode Free / Harness setup](FREE_MODEL_AND_HARNESS_SETUP.md). OpenCode's listed free DeepSeek model rejected direct external API use; installing OpenCode does not configure TerraLab inference.
 
 AI Studio is `/ai`, linked from Network studio and the project library. It uses **saved** project configuration. Save the current network before opening it, select the project, check the connection, then choose a returned model. Research-agent changes and experiment submissions require an explicit preview and human approval; explanation-only mode has no executable domain tools.

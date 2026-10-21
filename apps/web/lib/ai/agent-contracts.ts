@@ -1,6 +1,8 @@
 import { z } from 'zod';
-import { pointSchema } from '@terralab/shared';
+import { pointSchema, labConfigSchema } from '@terralab/shared';
 import { chatSchema, contextInputSchema } from './contracts';
+import { commandIdSchema } from './testing';
+import { studySchema } from './research-workflows';
 
 const id = z
   .string()
@@ -17,6 +19,19 @@ const propertyValue = z.union([
 const properties = z
   .record(z.string().max(40), propertyValue)
   .refine((p) => Object.keys(p).length <= 32, 'At most 32 properties');
+// Expose actual field names/types to the planner. Omitted fields must preserve saved settings,
+// so remove schema defaults before making each patch field optional. Domain validation still
+// checks the merged full configuration and its scientific/workload constraints.
+const experimentPatch = z
+  .object(
+    Object.fromEntries(
+      Object.entries(labConfigSchema.shape).map(([key, schema]) => [
+        key,
+        (schema instanceof z.ZodDefault ? schema.removeDefault() : schema).optional(),
+      ]),
+    ),
+  )
+  .strict();
 export const operationSchema = z.discriminatedUnion('op', [
   z
     .object({
@@ -59,9 +74,19 @@ export const toolSchemas = {
       reason: z.string().min(1).max(500),
     })
     .strict(),
-  propose_experiment: z.object({ config: properties, reason: z.string().min(1).max(500) }).strict(),
+  propose_experiment: z
+    .object({ config: experimentPatch, reason: z.string().min(1).max(500) })
+    .strict(),
   propose_cancel_run: z.object({ runId: z.string().uuid() }).strict(),
   export_run: z.object({ runId: z.string().uuid(), format: z.enum(['json', 'csv']) }).strict(),
+  inspect_test_commands: z.object({}).strict(),
+  inspect_changes: z.object({}).strict(),
+  propose_test_run: z
+    .object({ commandId: commandIdSchema, reason: z.string().min(1).max(500) })
+    .strict(),
+  inspect_test_run: z.object({ testId: z.string().uuid() }).strict(),
+  propose_cancel_test: z.object({ testId: z.string().uuid() }).strict(),
+  propose_parameter_study: studySchema,
 } as const;
 export type ToolName = keyof typeof toolSchemas;
 export const toolDescriptions: Record<ToolName, string> = {
@@ -91,6 +116,18 @@ export const toolDescriptions: Record<ToolName, string> = {
     'Prepare cancellation of the selected active project run for human confirmation.',
   export_run:
     'Prepare a link to export the actual authorized run with existing JSON/CSV conversion. Does not invent an artifact.',
+  inspect_test_commands:
+    'List actual fixed command IDs and local runner limits. No arbitrary shell or arguments. Only advertised on an enabled local development server.',
+  inspect_changes:
+    'Read bounded changed source paths and working-tree hash, and suggest relevant allowlisted tests. No source bodies, environment files or arbitrary paths.',
+  propose_test_run:
+    'Prepare a reviewed exact test command ID, source hash and limits. Does not execute. Explain the plan and stop for human approval.',
+  inspect_test_run:
+    'Read actual local test state, timestamps, exit code, counts when provided, bounded logs and tested revision. Missing exit code is never a pass.',
+  propose_cancel_test:
+    'Prepare human-reviewed cancellation for the exact local test job. A terminal result cannot be relabeled cancelled.',
+  propose_parameter_study:
+    'Prepare a bounded single-variable reproducible experiment matrix using the existing scientific sweep queue. Requires a clearly stated target metric and human approval. Never silently expand limits.',
 };
 export const agentRequestSchema = chatSchema.extend({}).strict();
 export const approvalRequestSchema = z
@@ -101,9 +138,10 @@ export const approvalRequestSchema = z
   })
   .strict();
 export type ApprovalView = {
+  id?: string;
   token: string;
   title: string;
-  kind: 'network' | 'copy' | 'experiment' | 'cancel' | 'restore';
+  kind: 'network' | 'copy' | 'experiment' | 'cancel' | 'restore' | 'test' | 'cancel_test';
   preview: unknown;
   destructive: boolean;
   shared: boolean;

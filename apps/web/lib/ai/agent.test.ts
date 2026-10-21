@@ -228,7 +228,8 @@ describe('approval and permissions', () => {
         { nextProject: project },
       ),
     ).toThrow();
-    expect(toolSpecs('editor').length).toBe(Object.keys(toolSchemas).length);
+    expect(toolSpecs('editor', true).length).toBe(Object.keys(toolSchemas).length);
+    expect(toolSpecs('editor').some((t) => t.function.name === 'propose_test_run')).toBe(false);
   });
   it('validates every registered tool schema strictly and returns structured failures without secret logging', async () => {
     for (const schema of Object.values(toolSchemas))

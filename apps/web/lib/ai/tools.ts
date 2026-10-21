@@ -21,8 +21,13 @@ import { prepareApproval } from './approvals';
 import { parameterReference, parameterIndex } from './parameters';
 import { authorizedRun, listProjectRuns, runSummary } from './scientific';
 import { comparisonWarnings, comparisonRows } from '../run-comparison';
+import { inspectTesting, inspectTest, testingAvailable } from './testing';
+import { parameterStudy, regressionPlan, studySchema } from './research-workflows';
 
-const calls = new Map<string, { count: number; until: number }>();
+const rateGlobal = globalThis as typeof globalThis & {
+  __terralabAIToolRates?: Map<string, { count: number; until: number }>;
+};
+const calls = (rateGlobal.__terralabAIToolRates ??= new Map());
 export function toolRateLimit(user: string) {
   const now = Date.now();
   for (const [key, value] of calls) if (value.until <= now) calls.delete(key);
@@ -56,9 +61,17 @@ export function auditTool(
     }),
   );
 }
-export function toolSpecs(role: 'owner' | 'editor' | 'viewer'): ToolSpec[] {
+const testingTools = new Set([
+  'inspect_test_commands',
+  'inspect_changes',
+  'propose_test_run',
+  'inspect_test_run',
+  'propose_cancel_test',
+]);
+export function toolSpecs(role: 'owner' | 'editor' | 'viewer', localTesting = false): ToolSpec[] {
   return (Object.keys(toolSchemas) as ToolName[])
     .filter((name) => role !== 'viewer' || !name.startsWith('propose_'))
+    .filter((name) => !testingTools.has(name) || localTesting)
     .map((name) => ({
       type: 'function',
       function: {
@@ -93,6 +106,89 @@ export async function executeTool(
     if (toolName.startsWith('propose_')) requireEditor(active);
     let data: unknown, approval: ApprovalView | undefined;
     switch (toolName) {
+      case 'inspect_test_commands':
+        data = await inspectTesting(identity);
+        break;
+      case 'inspect_changes': {
+        const actual = await inspectTesting(identity);
+        data = {
+          revision: { hash: actual.hash, commit: actual.commit },
+          ...regressionPlan(actual.changedFiles),
+          truncated: actual.truncated,
+        };
+        break;
+      }
+      case 'propose_test_run': {
+        const value = toolSchemas.propose_test_run.parse(input);
+        const actual = await inspectTesting(identity);
+        const command = actual.commands.find((c) => c.id === value.commandId)!;
+        approval = prepareApproval(
+          identity,
+          active,
+          'test',
+          'Review approved local test',
+          {
+            command,
+            revision: { commit: actual.commit, hash: actual.hash },
+            changedFiles: actual.changedFiles,
+            isolation: actual.isolation,
+            limits: actual.limits,
+            consequence:
+              'Execute this exact trusted development command in a disposable source copy with credentials excluded. Shared installed dependencies are not a hostile-code sandbox. No patches are applied.',
+          },
+          { config: { commandId: value.commandId, revision: actual.hash } },
+        );
+        data = { state: 'proposed', confirmationRequired: true };
+        break;
+      }
+      case 'inspect_test_run': {
+        const job = (await inspectTest(
+          identity,
+          p.id,
+          toolSchemas.inspect_test_run.parse(input).testId,
+        )) as Record<string, unknown>;
+        const output = typeof job.output === 'string' ? job.output : '';
+        data = { ...job, output: output.slice(-12000), outputTruncated: output.length > 12000 };
+        break;
+      }
+      case 'propose_cancel_test': {
+        const value = toolSchemas.propose_cancel_test.parse(input);
+        const job = (await inspectTest(identity, p.id, value.testId)) as { state: string };
+        if (!['queued', 'running'].includes(job.state))
+          throw new AIError(
+            'test_terminal',
+            'The test job is already terminal; inspect its actual result.',
+            409,
+          );
+        approval = prepareApproval(
+          identity,
+          active,
+          'cancel_test',
+          'Cancel approved local test',
+          {
+            testId: value.testId,
+            state: job.state,
+            consequence:
+              'Cooperatively stop the runner and terminate its command process tree. Bounded partial logs remain.',
+          },
+          { runId: value.testId },
+        );
+        data = { state: 'proposed', confirmationRequired: true };
+        break;
+      }
+      case 'propose_parameter_study': {
+        const study = parameterStudy(p, studySchema.parse(input));
+        approval = prepareApproval(
+          identity,
+          active,
+          'experiment',
+          'Review controlled parameter study',
+          study,
+          { config: study.config },
+        );
+        data = { state: 'proposed', confirmationRequired: true, method: study.method };
+        break;
+      }
       case 'inspect_project': {
         const points = p.objects.map((o) => ({ x: o.x, y: o.y }));
         data = {

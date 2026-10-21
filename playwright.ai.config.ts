@@ -32,6 +32,7 @@ export default defineConfig({
       timeout: 120000,
       env: {
         TERRALAB_AI_LOCAL_DEV: '1',
+        TERRALAB_AI_TESTING_ENABLED: '1',
         TERRALAB_AI_OLLAMA_ENABLED: '1',
         TERRALAB_AI_OLLAMA_URL: 'http://127.0.0.1:11444',
         TERRALAB_AI_DEV_DEEPSEEK_KEY: '',

@@ -3,15 +3,19 @@ import { agentRequestSchema, type AgentEvent } from '../../../../lib/ai/agent-co
 import { runAgent } from '../../../../lib/ai/agent';
 import { safeError } from '../../../../lib/ai/contracts';
 import { toolRateLimit } from '../../../../lib/ai/tools';
+import { admitInference } from '../../../../lib/ai/admission';
+import { inferenceBudget } from '../../../../lib/ai/providers';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 export async function POST(request: Request) {
   const stopped = new AbortController();
+  let release = () => {};
   try {
     const identity = await guard(request);
     toolRateLimit(identity.userId);
     const input = agentRequestSchema.parse(await body(request));
+    release = admitInference(identity.userId, inferenceBudget(input.provider));
     const scoped = new Request(request.url, {
       method: 'POST',
       headers: request.headers,
@@ -31,6 +35,7 @@ export async function POST(request: Request) {
             emit({ type: 'error', code: safe.code, message: safe.message });
           }
         } finally {
+          release();
           stopped.abort();
           try {
             controller.close();
@@ -40,6 +45,7 @@ export async function POST(request: Request) {
         }
       },
       cancel() {
+        release();
         stopped.abort();
         void iterator.return(undefined);
       },
@@ -52,6 +58,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    release();
     stopped.abort();
     return errorResponse(error);
   }

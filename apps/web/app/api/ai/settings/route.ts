@@ -15,6 +15,8 @@ import {
 } from '../../../../lib/ai/credentials';
 import { AIError, keySchema } from '../../../../lib/ai/contracts';
 import { textProviders } from '../../../../lib/ai/providers';
+import { testingAvailable } from '../../../../lib/ai/testing';
+import { modelSchema } from '../../../../lib/ai/contracts';
 
 export const runtime = 'nodejs';
 export async function GET(request: Request) {
@@ -28,6 +30,18 @@ export async function GET(request: Request) {
           ? Boolean(process.env.TERRALAB_AI_DEV_DEEPSEEK_KEY)
           : Boolean(openCredential(readCookie(request), identity.userId)),
         ollamaEnabled: identity.local && process.env.TERRALAB_AI_OLLAMA_ENABLED === '1',
+        actorId: identity.userId,
+        freeLocalOnly: process.env.TERRALAB_AI_FREE_LOCAL_ONLY === '1',
+        testingEnabled: testingAvailable(identity),
+        preferredLocalModel: identity.local
+          ? (modelSchema.safeParse(process.env.TERRALAB_AI_OLLAMA_MODEL).data ?? null)
+          : null,
+        analysisLocalModel: identity.local
+          ? (modelSchema.safeParse(process.env.TERRALAB_AI_OLLAMA_ANALYSIS_MODEL).data ?? null)
+          : null,
+        agentLocalModel: identity.local
+          ? (modelSchema.safeParse(process.env.TERRALAB_AI_OLLAMA_AGENT_MODEL).data ?? null)
+          : null,
         // Configuration is not proof of a live connection.
       },
       { headers: privateHeaders },
@@ -39,6 +53,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const identity = await guard(request);
+    if (process.env.TERRALAB_AI_FREE_LOCAL_ONLY === '1')
+      throw new AIError(
+        'free_local_only',
+        'Hosted credentials are disabled in this free local profile.',
+        403,
+      );
     if (identity.local)
       throw new AIError(
         'local_configuration',

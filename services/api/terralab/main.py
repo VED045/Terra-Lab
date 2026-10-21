@@ -79,7 +79,7 @@ def create_experiment(request: ExperimentRequest, authorization: str | None = He
         try: key=str(uuid.UUID(idempotency_key or ''))
         except ValueError as exc: raise HTTPException(422,'A UUID Idempotency-Key is required') from exc
         return cloud.create(request,authorization,key)
-    try: return {'id': start_job(request)}
+    try: return {'id': start_job(request,idempotency_key)}
     except ValueError as exc: raise HTTPException(422, str(exc)) from exc
 
 @app.get('/experiments/{identity}')

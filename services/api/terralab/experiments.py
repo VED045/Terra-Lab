@@ -119,12 +119,20 @@ def save_job(job):
     path=DATA/(job['id']+'.json'); temporary=path.with_suffix('.tmp')
     temporary.write_text(json.dumps(job['result'],allow_nan=False),encoding='utf-8'); temporary.replace(path)
 
-def start_job(request):
+def start_job(request, idempotency_key=None):
     with LOCK:
+        identity=str(uuid.UUID(idempotency_key)) if idempotency_key else str(uuid.uuid4())
+        if idempotency_key:
+            previous=JOBS.get(identity,{}).get('result')
+            if previous is None and (DATA/(identity+'.json')).exists():
+                previous=json.loads((DATA/(identity+'.json')).read_text(encoding='utf-8'))
+            if previous is not None:
+                if previous.get('request') != request.model_dump(): raise ValueError('Idempotency conflict: request changed')
+                return identity
         finished=[key for key,job in JOBS.items() if job['result']['status'] not in ['queued','running']]
         for key in finished[:-2]: del JOBS[key]  # Terminal snapshots remain on disk.
         if sum(j['result']['status'] in ['queued','running'] for j in JOBS.values())>=4: raise ValueError('Four experiments are already queued/running')
-        identity=str(uuid.uuid4()); event=threading.Event()
+        event=threading.Event()
         c=request.config
         planned=len(locations(request))*(int(np.floor(c.duration/c.sampleStep+1e-9))+1)*(len(c.sweepValues) if c.sweep!='none' else 1)*c.trials*len(c.estimators)
         job=dict(id=identity,cancel=event,result=dict(id=identity,status='queued',request=request.model_dump(),completed=0,planned=planned,records=[],frames={},summaries=[],createdAt=utc(),softwareVersion=VERSION,environment=environment(),error=None))

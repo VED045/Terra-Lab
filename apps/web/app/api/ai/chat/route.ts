@@ -9,17 +9,27 @@ import {
 } from '../../../../lib/ai/server';
 import { AIError, chatSchema, safeError, type StreamEvent } from '../../../../lib/ai/contracts';
 import { readContext } from '../../../../lib/ai/context';
-import { textProviders } from '../../../../lib/ai/providers';
+import { textProviders, inferenceBudget } from '../../../../lib/ai/providers';
 import { streamRedactor } from '../../../../lib/ai/credentials';
+import { admitInference } from '../../../../lib/ai/admission';
+import { toolRateLimit } from '../../../../lib/ai/tools';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 export async function POST(request: Request) {
   const stopped = new AbortController();
-  const signal = AbortSignal.any([request.signal, stopped.signal, AbortSignal.timeout(45000)]);
+  let signal = AbortSignal.any([request.signal, stopped.signal]);
+  let release = () => {};
   try {
     const identity = await guard(request);
+    toolRateLimit(identity.userId);
     const input = chatSchema.parse(await body(request));
+    release = admitInference(identity.userId, inferenceBudget(input.provider));
+    signal = AbortSignal.any([
+      request.signal,
+      stopped.signal,
+      AbortSignal.timeout(inferenceBudget(input.provider)),
+    ]);
     if (input.messages.at(-1)?.role !== 'user')
       throw new AIError('invalid_request', 'Send a user message to start a response.');
     const context = await readContext(identity, input.context, request); // Fresh authorization on every turn.
@@ -87,6 +97,7 @@ export async function POST(request: Request) {
             });
           }
         } finally {
+          release();
           stopped.abort();
           try {
             controller.close();
@@ -96,6 +107,7 @@ export async function POST(request: Request) {
         }
       },
       cancel() {
+        release();
         stopped.abort();
         void iterator.return(undefined);
       },
@@ -108,6 +120,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    release();
     const wasAborted = signal.aborted;
     stopped.abort();
     if (wasAborted && !(error instanceof AIError))

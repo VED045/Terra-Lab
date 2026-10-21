@@ -2,6 +2,13 @@ import { z } from 'zod';
 import { AIError, modelSchema, type Message, type ProviderId } from './contracts';
 
 type Connection = { key: string; signal: AbortSignal };
+export function inferenceBudget(provider: ProviderId) {
+  return provider === 'ollama' &&
+    process.env.NODE_ENV === 'development' &&
+    process.env.TERRALAB_AI_LOCAL_DEV === '1'
+    ? 180000
+    : 45000;
+}
 type ProviderMessage = Omit<Message, 'role'> & { role: 'user' | 'assistant' | 'system' };
 export interface TextProvider {
   models(connection: Connection): Promise<string[]>;
@@ -177,7 +184,17 @@ export function ollamaBase(): string {
 const ollama: TextProvider = {
   async models(connection) {
     const result = z
-      .object({ models: z.array(z.object({ name: modelSchema })).max(1000) })
+      .object({
+        models: z
+          .array(
+            z.object({
+              name: modelSchema,
+              remote_model: z.string().optional(),
+              remote_host: z.string().optional(),
+            }),
+          )
+          .max(1000),
+      })
       .parse(await json(await call(ollamaBase() + '/api/tags', connection)));
     if (!result.models.length)
       throw new AIError(
@@ -185,13 +202,20 @@ const ollama: TextProvider = {
         'No local models are installed. Install a suitable text model manually in Ollama.',
         422,
       );
-    return result.models.map((m) => m.name);
+    const local = result.models.filter(
+      (m) => !m.remote_model && !m.remote_host && !/(?:^|[:-])cloud(?:$|[:-])/i.test(m.name),
+    );
+    if (!local.length)
+      throw new AIError(
+        'local_model_required',
+        'Only cloud-backed models were found. TerraLab local mode requires downloaded local weights; cloud billing is not enabled.',
+        422,
+      );
+    return local.map((m) => m.name);
   },
   async *stream(model, messages, connection) {
     const base = ollamaBase();
-    const details = z
-      .object({ capabilities: z.array(z.string()) })
-      .parse(await json(await call(base + '/api/show', connection, { model })));
+    const details = await localOllamaModel(model, connection);
     if (!details.capabilities.includes('completion'))
       throw new AIError(
         'unsupported_model',
@@ -202,7 +226,8 @@ const ollama: TextProvider = {
       model,
       messages,
       stream: true,
-      options: { num_predict: 2048, num_ctx: 8192 },
+      ...(details.capabilities.includes('thinking') ? { think: false } : {}),
+      options: { num_predict: 1024, num_ctx: 4096 },
     });
     let ended = false;
     for await (const line of lines(response)) {
@@ -211,6 +236,7 @@ const ollama: TextProvider = {
         .object({
           message: z.object({ content: z.string() }).optional(),
           done: z.boolean().optional(),
+          done_reason: z.string().optional(),
           error: z.string().optional(),
         })
         .parse(JSON.parse(line));
@@ -219,6 +245,12 @@ const ollama: TextProvider = {
           'provider_unavailable',
           'Ollama could not complete the response. Check the local model and available memory.',
           503,
+        );
+      if (chunk.done_reason === 'length')
+        throw new AIError(
+          'output_limit',
+          'The local model exhausted its output budget before finishing. Ask a smaller question; no completed answer or action is assumed.',
+          422,
         );
       if (chunk.message?.content) yield chunk.message.content;
       if (chunk.done) {
@@ -234,5 +266,27 @@ const ollama: TextProvider = {
       );
   },
 };
+export function assertLocalOllamaModel(
+  model: string,
+  details: { remote_model?: string; remote_host?: string },
+) {
+  if (details.remote_model || details.remote_host || /(?:^|[:-])cloud(?:$|[:-])/i.test(model))
+    throw new AIError(
+      'local_model_required',
+      'Cloud-backed Ollama models are disabled. Choose downloaded local weights; no hosted billing is permitted by this local route.',
+      422,
+    );
+}
+export async function localOllamaModel(model: string, connection: Connection) {
+  const details = z
+    .object({
+      capabilities: z.array(z.string()),
+      remote_model: z.string().optional(),
+      remote_host: z.string().optional(),
+    })
+    .parse(await json(await call(ollamaBase() + '/api/show', connection, { model })));
+  assertLocalOllamaModel(model, details);
+  return details;
+}
 export const textProviders: Record<ProviderId, TextProvider> = { deepseek, ollama };
 export { call as providerCall, json as providerJson };

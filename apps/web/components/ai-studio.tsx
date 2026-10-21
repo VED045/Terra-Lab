@@ -11,12 +11,25 @@ import { downloadFile } from '@/lib/downloads';
 import { freshCopy } from '@/lib/research';
 import type { AgentEvent, ApprovalView } from '@/lib/ai/agent-contracts';
 import { AIActionReview } from './ai-action-review';
+import { AIResearchTasks } from './ai-research-tasks';
+import type { ActionOutcome } from '@/lib/ai/task-history';
 import { useStudio } from '@/lib/store';
 import { providers, type Message, type ProviderId, type StreamEvent } from '@/lib/ai/contracts';
 import { NetworkLogo } from './network-logo';
 import { Button } from './ui/button';
 
-type Settings = { mode: string; canSave: boolean; configured: boolean; ollamaEnabled: boolean };
+type Settings = {
+  mode: string;
+  canSave: boolean;
+  configured: boolean;
+  ollamaEnabled: boolean;
+  actorId?: string;
+  testingEnabled?: boolean;
+  preferredLocalModel?: string | null;
+  freeLocalOnly?: boolean;
+  analysisLocalModel?: string | null;
+  agentLocalModel?: string | null;
+};
 type Experiment = { measurement: string; trials: number; estimators: string[] };
 type Context = {
   source: string;
@@ -57,6 +70,8 @@ export default function AIStudio() {
   const [approval, setApproval] = useState<ApprovalView | null>(null);
   const [recovery, setRecovery] = useState<ApprovalView | null>(null);
   const [trackedRun, setTrackedRun] = useState('');
+  const [trackedTest, setTrackedTest] = useState('');
+  const [taskOutcome, setTaskOutcome] = useState<ActionOutcome | null>(null);
   const [changedProject, setChangedProject] = useState<Project | null>(null);
   const [changedEntities, setChangedEntities] = useState<string[]>([]);
   const [runView, setRunView] = useState<{
@@ -65,7 +80,15 @@ export default function AIStudio() {
     completed: number;
     planned: number;
     error?: string | null;
-    metrics: { estimator: string; rmseM: number | null; fixes: number; attempted: number }[];
+    metrics: {
+      estimator: string;
+      sweepValue?: number;
+      rmseM: number | null;
+      fixes: number;
+      attempted: number;
+    }[];
+    metricGroupsTotal?: number;
+    configuration?: { sweep: string; seed: number; measurement: string; trials: number };
   } | null>(null);
   const keyInput = useRef<HTMLInputElement>(null); // Uncontrolled; cleared immediately after submission.
   const abort = useRef<AbortController | null>(null);
@@ -90,7 +113,10 @@ export default function AIStudio() {
     });
     if (!response.ok) {
       const failure = await response.json().catch(() => null);
-      throw Error(failure?.message || 'AI Studio is unavailable. Retry shortly.');
+      throw Object.assign(Error(failure?.message || 'AI Studio is unavailable. Retry shortly.'), {
+        code: failure?.code,
+        status: response.status,
+      });
     }
     return response;
   }
@@ -108,6 +134,8 @@ export default function AIStudio() {
     setApproval(null);
     setRecovery(null);
     setTrackedRun('');
+    setTrackedTest('');
+    setTaskOutcome(null);
     setRunView(null);
     setChangedProject(null);
     setChangedEntities([]);
@@ -126,6 +154,12 @@ export default function AIStudio() {
         if (!active || epoch !== loadEpoch) return;
         setProjects(result);
         setSettings(config);
+        if (
+          config.mode === 'local-development' &&
+          config.ollamaEnabled &&
+          config.preferredLocalModel
+        )
+          setProvider('ollama');
         const query = new URLSearchParams(location.search);
         const id = query.get('project');
         if (id && result.some((p) => p.id === id)) {
@@ -208,6 +242,13 @@ export default function AIStudio() {
           })
         ).json();
         if (stopped || epoch !== contextRevision.current) return;
+        if (!result.ok && result.code === 'tool_rate_limit') {
+          setNotice(
+            'Status polling paused for the request-limit cooldown. The same run will be read again in one minute; no work will be resubmitted.',
+          );
+          timer = setTimeout(() => void poll(), 60000);
+          return;
+        }
         if (!result.ok) throw Error(result.message);
         setRunView(result.data);
         if (['queued', 'running'].includes(result.data.status))
@@ -225,7 +266,14 @@ export default function AIStudio() {
           }
         }
       } catch (e) {
-        if (!stopped && !controller.signal.aborted) setError((e as Error).message);
+        if (!stopped && !controller.signal.aborted) {
+          if ((e as Error & { code?: string }).code === 'tool_rate_limit') {
+            setNotice(
+              'Status polling paused for the request-limit cooldown. The same run will be read again in one minute; no work will be resubmitted.',
+            );
+            timer = setTimeout(() => void poll(), 60000);
+          } else setError((e as Error).message);
+        }
       }
     }
     void poll();
@@ -258,7 +306,15 @@ export default function AIStudio() {
       ).json();
       if (epoch !== revision.current) return;
       setModels(result.models);
-      setModel((current) => (result.models.includes(current) ? current : ''));
+      setModel((current) =>
+        result.models.includes(current)
+          ? current
+          : provider === 'ollama' &&
+              settings?.preferredLocalModel &&
+              result.models.includes(settings.preferredLocalModel)
+            ? settings.preferredLocalModel
+            : '',
+      );
       setConnected(result.checked === true);
       setNotice('Connection verified. Choose a model before sending.');
     } catch (e) {
@@ -491,6 +547,14 @@ export default function AIStudio() {
         setTrackedRun(result.runId);
         setRunView(null);
       }
+      if (result.testId) setTrackedTest(result.testId);
+      setTaskOutcome({
+        actionId: result.actionId,
+        state: result.state,
+        message: result.message,
+        ...(result.runId ? { runId: result.runId } : {}),
+        ...(result.testId ? { testId: result.testId } : {}),
+      });
       setApproval(null);
       setNotice(
         result.state === 'local_save_required'
@@ -498,13 +562,22 @@ export default function AIStudio() {
           : result.message,
       );
       setDraft(
-        result.runId
-          ? `Continue the original task. Inspect actual run ${result.runId} and report its real status before comparing results.`
-          : 'Continue the original task. Inspect the saved project to verify what changed, then propose the next controlled step if needed.',
+        result.testId
+          ? `Inspect approved test ${result.testId}. Report its actual exit code, counts, failing checks and limitations. Propose any fix without editing files; a fix needs separate operator approval and another test run.`
+          : result.runId
+            ? `Continue the original task. Inspect actual run ${result.runId} and report its real status before comparing results.`
+            : 'Continue the original task. Inspect the saved project to verify what changed, then propose the next controlled step if needed.',
       );
     } catch (e) {
       if (epoch === revision.current) {
         setError((e as Error).message);
+        if (approval.id)
+          setTaskOutcome({
+            actionId: approval.id,
+            state: 'failed',
+            message:
+              'The reviewed action did not return a confirmed outcome. Inspect actual state before retrying.',
+          });
         setApproval(null);
       }
     } finally {
@@ -718,7 +791,7 @@ export default function AIStudio() {
                 }}
               >
                 {Object.entries(providers).map(([id, p]) => (
-                  <option key={id} value={id}>
+                  <option key={id} value={id} disabled={settings?.freeLocalOnly && id !== 'ollama'}>
                     {p.label}
                   </option>
                 ))}
@@ -732,6 +805,18 @@ export default function AIStudio() {
                 onChange={(e) => {
                   resetConversation();
                   setModel(e.target.value);
+                  if (provider === 'ollama' && e.target.value === settings?.analysisLocalModel) {
+                    setAgentEnabled(false);
+                    setNotice(
+                      'Selected the local analysis model in explanation mode. Its agent compatibility is not assumed.',
+                    );
+                  }
+                  if (provider === 'ollama' && e.target.value === settings?.agentLocalModel) {
+                    setAgentEnabled(true);
+                    setNotice(
+                      'Selected the local research model. Verify compatibility before agent chat; actions still require review.',
+                    );
+                  }
                 }}
               >
                 <option value="">Choose after connection check</option>
@@ -794,12 +879,21 @@ export default function AIStudio() {
                 </form>
               ) : (
                 <p>
-                  {settings?.mode === 'local-development'
-                    ? 'Development mode: configure your own TERRALAB_AI_DEV_DEEPSEEK_KEY on the local server.'
-                    : 'Sign in through Projects. The administrator must configure TERRALAB_AI_COOKIE_KEY before browser key saving is available.'}
+                  {settings?.freeLocalOnly
+                    ? 'Free local inference is enabled. Hosted API calls are disabled and no provider API key is used.'
+                    : settings?.mode === 'local-development'
+                      ? 'Development mode: configure your own TERRALAB_AI_DEV_DEEPSEEK_KEY on the local server.'
+                      : 'Sign in through Projects. The administrator must configure TERRALAB_AI_COOKIE_KEY before browser key saving is available.'}
                 </p>
               )}
               <h3>Optional Ollama</h3>
+              {settings?.agentLocalModel && (
+                <p>
+                  Local research model: {settings.agentLocalModel}. Local analysis model:{' '}
+                  {settings.analysisLocalModel ?? 'choose an installed model'}. Selecting an
+                  analysis model uses explanation mode; there is no silent fallback.
+                </p>
+              )}
               <p>
                 Run Ollama and TerraLab on the same computer, enable the local development
                 connection, install a suitable model manually, then check the connection and choose
@@ -852,6 +946,35 @@ export default function AIStudio() {
             <div ref={end} />
           </div>
           <div className="ai-compose-area">
+            {settings &&
+              (settings.actorId || settings.mode === 'local-development') &&
+              projects.some((p) => p.id === projectId) && (
+                <AIResearchTasks
+                  key={
+                    (settings.actorId ||
+                      (settings.mode === 'local-development' ? 'local-development' : '')) +
+                    ':' +
+                    projectId
+                  }
+                  actor={
+                    settings.actorId ||
+                    (settings.mode === 'local-development' ? 'local-development' : '')
+                  }
+                  project={projects.find((p) => p.id === projectId)!}
+                  api={api}
+                  contextInput={contextInput}
+                  approval={approval}
+                  onApproval={setApproval}
+                  outcome={taskOutcome}
+                  runView={runView}
+                  trackedRun={trackedRun}
+                  onTrackRun={setTrackedRun}
+                  testId={trackedTest}
+                  onTrackTest={setTrackedTest}
+                  testingEnabled={settings.testingEnabled === true}
+                  onDraft={setDraft}
+                />
+              )}
             {agentEnabled && context && (
               <div className="ai-research-controls">
                 <Button
@@ -926,11 +1049,26 @@ export default function AIStudio() {
                   {runView.id} · {runView.completed}/{runView.planned} samples
                 </p>
                 {runView.error && <p>{runView.error}</p>}
+                {runView.configuration && (
+                  <p>
+                    Measurement: {runView.configuration.measurement} · Sweep:{' '}
+                    {runView.configuration.sweep} · Seed: {runView.configuration.seed} · Trials:{' '}
+                    {runView.configuration.trials}
+                  </p>
+                )}
+                {typeof runView.metricGroupsTotal === 'number' &&
+                  runView.metricGroupsTotal > runView.metrics.length && (
+                    <p>
+                      Showing {runView.metrics.length} of {runView.metricGroupsTotal} metric groups.
+                      Export the actual data for all groups.
+                    </p>
+                  )}
                 <table>
                   <caption>Recorded metrics · conditional on successful fixes</caption>
                   <thead>
                     <tr>
                       <th>Estimator</th>
+                      <th>Sweep value</th>
                       <th>RMSE (m)</th>
                       <th>Fixes / attempts</th>
                     </tr>
@@ -939,6 +1077,7 @@ export default function AIStudio() {
                     {runView.metrics.map((metric, i) => (
                       <tr key={i}>
                         <td>{metric.estimator}</td>
+                        <td>{metric.sweepValue ?? '—'}</td>
                         <td>{metric.rmseM ?? 'Unavailable'}</td>
                         <td>
                           {metric.fixes}/{metric.attempted}

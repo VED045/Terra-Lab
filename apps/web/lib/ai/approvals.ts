@@ -13,6 +13,7 @@ import {
 import { submitExperiment, authorizedRun, scientificCall } from './scientific';
 import type { ApprovalView } from './agent-contracts';
 import type { contextInputSchema } from './contracts';
+import { submitTest, inspectTest } from './testing';
 
 const approvalGlobal = globalThis as typeof globalThis & {
   __terralabAIApprovals?: { key: Buffer; consumed: Map<string, number> };
@@ -30,7 +31,7 @@ const approvalSchema = z
     projectId: z.string().uuid(),
     baseHash: z.string().length(64),
     expires: z.number(),
-    kind: z.enum(['network', 'copy', 'experiment', 'cancel', 'restore']),
+    kind: z.enum(['network', 'copy', 'experiment', 'cancel', 'restore', 'test', 'cancel_test']),
     nextProject: projectSchema.optional(),
     config: z.record(z.string(), z.json()).optional(),
     runId: z.string().uuid().optional(),
@@ -77,18 +78,21 @@ export function prepareApproval(
     ...extra,
   });
   return {
+    id: payload.id,
     token: sign(identity, payload),
     title,
     kind,
     preview: {
       details: preview,
-      recovery:
-        identity.local && ['network', 'restore'].includes(kind)
+      recovery: ['test', 'cancel_test'].includes(kind)
+        ? 'No code patch is applied. Inspect the actual exit status and logs; any proposed fix needs separate operator approval and a new test run.'
+        : identity.local && ['network', 'restore'].includes(kind)
           ? 'A private before-change recovery copy is saved through the existing browser project store before replacing the saved project.'
           : 'Cloud edits retain existing revision history; the source of a copy is unchanged.',
     },
     destructive:
       kind === 'cancel' ||
+      kind === 'cancel_test' ||
       kind === 'restore' ||
       (kind === 'network' &&
         active.project.objects.some(
@@ -158,6 +162,34 @@ export async function applyApproval(
     };
   if (request.signal.aborted)
     throw new AIError('cancelled', 'Approval cancelled before execution.', 499);
+  if (payload.kind === 'test') {
+    const job = await submitTest(
+      identity,
+      active.project.id,
+      payload.config?.commandId,
+      payload.config?.revision,
+      payload.id,
+    );
+    return {
+      state: 'submitted',
+      actionId: payload.id,
+      testId: payload.id,
+      job,
+      message:
+        'Approved local test submitted. Inspect the actual exit code before claiming a pass.',
+    };
+  }
+  if (payload.kind === 'cancel_test') {
+    const job = await inspectTest(identity, active.project.id, payload.runId!, true);
+    return {
+      state: 'cancellation_requested',
+      actionId: payload.id,
+      testId: payload.runId,
+      job,
+      message:
+        'Local test cancellation requested. Poll its real terminal state; no pass is assumed.',
+    };
+  }
   if (payload.kind === 'experiment') {
     const { config, workload } = experimentConfiguration(active.project, payload.config || {});
     const result = await submitExperiment(request, active.project, config, payload.id);

@@ -1,5 +1,18 @@
 # TerraLab AI tools and permissions
 
+Phase 3 adds six tools to the fourteen-tool Phase 2 catalogue below. The five testing tools are advertised only on an explicitly enabled local development server; the server independently rejects their use elsewhere. `propose_parameter_study` is available to editors/owners under the same scientific approval/queue boundary as experiments.
+
+| Added tool                | Scope and result                                                                                                                                                                 |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `inspect_test_commands`   | Local operator only; actual fixed command IDs, invocations, source hash, resource/network policy and isolation disclosure.                                                       |
+| `inspect_changes`         | Local operator only; bounded changed paths and revision, heuristic relevant-test selection and explicit no-patch policy. No source/environment file bodies.                      |
+| `propose_test_run`        | Local operator only; reviewed exact command ID and fresh source hash. No arbitrary argv, cwd, shell string or environment input.                                                 |
+| `inspect_test_run`        | Local operator only, selected project; actual state/times/exit code/counts/revision and up to 12 KB of retained diagnostic output. Unknown counts are null.                      |
+| `propose_cancel_test`     | Local operator only; exact active test job and process-tree cancellation consequences for review.                                                                                |
+| `propose_parameter_study` | Editor/owner; two to five values for one actual supported sweep, explicit target metric/trials/seed, validated workload and human-reviewed existing experiment queue submission. |
+
+The local inference budget is now 180 seconds; hosted remains 45 seconds under the existing 60-second deployed route cap. Six steps/twelve tools and existing output/work bounds remain. The free local profile rejects hosted keys and remote-backed Ollama model tags/metadata; its dedicated Ollama process also disables cloud inference. Test execution is a separately limited local process because the existing scientific queue does not run general repository commands. It is not a second scientific queue or a production command service. See [TEST_PLAN.md](TEST_PLAN.md) for the exact discovered catalogue and [SECURITY_AND_LIMITS.md](SECURITY_AND_LIMITS.md) for the local-trust limitation.
+
 Phase 2 extends the preserved Phase 1 explanation mode with a bounded research-agent loop. No shell, code interpreter, SQL, unrestricted HTTP client, filesystem or browser tool is exposed to the model. The existing scientific solvers and queue execute numerical work.
 
 ## Authority and execution

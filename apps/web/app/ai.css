@@ -483,3 +483,67 @@
     flex-wrap: wrap;
   }
 }
+.ai-workflows {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.ai-workflows summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.ai-workflows details {
+  margin: 8px 0;
+}
+.ai-workflows p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.ai-workflows pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 260px;
+  overflow: auto;
+  font-size: 11px;
+}
+.ai-workflow-actions,
+.ai-workflow-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.ai-workflow-fields label {
+  flex: 1 1 150px;
+  min-width: 0;
+  font-size: 12px;
+}
+.ai-workflows input,
+.ai-workflows select {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  padding: 8px;
+  margin: 4px 0;
+  border-radius: 4px;
+}
+.ai-task-history {
+  list-style: none;
+  padding: 0;
+  max-height: 300px;
+  overflow: auto;
+}
+.ai-task-history > li {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.ai-workflows button {
+  margin: 3px;
+}

@@ -1,3 +1,7 @@
+<!-- Phase 2 historical research follows. -->
+
+**22 October 2026 update:** Ollama is now installed with a dedicated free local TerraLab profile. See [current setup](PROVIDER_SETUP.md) and [Phase 3 live results](PHASE_3_REPORT.md). Earlier unconfigured/live-deferred statements below record Phase 2, not the current laptop state.
+
 # OpenCode Free, DeepSeek Harness, and TerraLab
 
 Verified on 21 October 2026. OpenCode desktop **v2.1.2** is installed at `C:\Users\Ved\AppData\Local\Programs\@opencodedesktop\OpenCode.exe`; its bundled CLI is `resources\opencode-cli.exe`.

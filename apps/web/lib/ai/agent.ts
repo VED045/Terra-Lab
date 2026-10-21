@@ -7,7 +7,8 @@ import { executeTool, toolSpecs } from './tools';
 import { agentTurn } from './agent-provider';
 import { providerKey } from './server';
 import { redact } from './credentials';
-import { textProviders } from './providers';
+import { textProviders, inferenceBudget } from './providers';
+import { testingAvailable } from './testing';
 
 export async function* runAgent(
   request: Request,
@@ -16,7 +17,10 @@ export async function* runAgent(
   const identity = await identify(request);
   const active = await activeProject(identity, input.context);
   const key = providerKey(request, identity, input.provider);
-  const signal = AbortSignal.any([request.signal, AbortSignal.timeout(AGENT_LIMITS.milliseconds)]);
+  const signal = AbortSignal.any([
+    request.signal,
+    AbortSignal.timeout(inferenceBudget(input.provider)),
+  ]);
   const scopedRequest = new Request(request.url, {
     method: 'POST',
     headers: request.headers,
@@ -33,7 +37,7 @@ export async function* runAgent(
   const connection = { key, signal };
   if (!(await textProviders[input.provider].models(connection)).includes(input.model))
     throw new AIError('unsupported_model', 'Check the connection and select a listed model.', 422);
-  const tools = toolSpecs(active.role);
+  const tools = toolSpecs(active.role, testingAvailable(identity));
   const messages: AgentMessage[] = [
     {
       role: 'system',

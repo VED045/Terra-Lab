@@ -24,6 +24,12 @@ export function errorResponse(error: unknown) {
   );
 }
 export function providerKey(request: Request, identity: AIIdentity, provider: ProviderId) {
+  if (provider !== 'ollama' && process.env.TERRALAB_AI_FREE_LOCAL_ONLY === '1')
+    throw new AIError(
+      'free_local_only',
+      'This TerraLab instance permits downloaded local models only. Hosted API calls and billing are disabled.',
+      403,
+    );
   if (provider === 'ollama') {
     if (!identity.local)
       throw new AIError(

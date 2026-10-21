@@ -436,6 +436,8 @@ Select two to four saved experiments to compare full-data metrics, configuration
 
 ## AI Studio foundation
 
+Phase 3 adds repeatable research workflows, reviewed fixed-command local tests and task recovery. On the configured Windows laptop, run `node scripts/start-local-ai.mjs` and open `http://127.0.0.1:13040/ai`. It uses installed free local Qwen3 Instruct for research tools and DeepSeek-R1 8B for explanations, with cloud inference disabled and no API key. Startup downloads nothing. Use `--status` / `--stop` to manage its recorded processes. See [setup](docs/ai/PROVIDER_SETUP.md), [test plan](docs/ai/TEST_PLAN.md), and [Phase 3 report](docs/ai/PHASE_3_REPORT.md). Local tests require trusted source; hosted test execution is disabled.
+
 Phase 2 extends `/ai` with a bounded research agent, reviewed network/parameter changes, real queued experiments, recorded metrics, comparison, cancellation and recovery. See [workflows](docs/ai/AGENT_WORKFLOWS.md), [tools and permissions](docs/ai/TOOLS_AND_PERMISSIONS.md), [actual parameter reference](docs/ai/PARAMETER_REFERENCE.md), and [OpenCode Free / Harness setup](docs/ai/FREE_MODEL_AND_HARNESS_SETUP.md). Explanation-only mode retains the original Phase 1 behavior; live inference requires your supported provider configuration.
 
 Open `/ai` from the project library or Network studio. Phase 1 provides read-only
