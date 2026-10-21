@@ -154,7 +154,7 @@ kbd {
   --node-fill: #e4f3f7;
   --receiver-fill: #e0f3eb;
   --selection: #148a9215;
-  --danger: #b7475a;
+  --danger: #a52d44;
   --shadow: 0 12px 40px #34445418;
 }
 /* Additional palettes use one accent hue with tonal surfaces. */
@@ -183,7 +183,7 @@ kbd {
   --node-fill: #242424;
   --receiver-fill: #313131;
   --selection: #eeeeee18;
-  --danger: #e7e7e7;
+  --danger: #ee8290;
   --primary-foreground: #101010;
   --primary-hover: #f0f0f0;
   --shadow: 0 12px 40px #00000066;
@@ -213,7 +213,7 @@ kbd {
   --node-fill: #e7e7e7;
   --receiver-fill: #dadada;
   --selection: #24242418;
-  --danger: #202020;
+  --danger: #a52d44;
   --primary-foreground: #ffffff;
   --primary-hover: #202020;
   --shadow: 0 12px 40px #00000028;
@@ -243,7 +243,7 @@ kbd {
   --node-fill: #182238;
   --receiver-fill: #1f2c45;
   --selection: #8cb4ff18;
-  --danger: #c0d0ef;
+  --danger: #ee8290;
   --primary-foreground: #0c1424;
   --primary-hover: #9abdff;
   --shadow: 0 12px 40px #00000066;
@@ -273,7 +273,7 @@ kbd {
   --node-fill: #1a2c24;
   --receiver-fill: #22372d;
   --selection: #8dd6ae18;
-  --danger: #c0dece;
+  --danger: #ee8290;
   --primary-foreground: #0f1b16;
   --primary-hover: #9bdbb8;
   --shadow: 0 12px 40px #00000066;
@@ -303,7 +303,7 @@ kbd {
   --node-fill: #2e2619;
   --receiver-fill: #3b301e;
   --selection: #e9bd7018;
-  --danger: #e6d4b4;
+  --danger: #ee8290;
   --primary-foreground: #1c1710;
   --primary-hover: #ecc581;
   --shadow: 0 12px 40px #00000066;
@@ -333,7 +333,7 @@ kbd {
   --node-fill: #292236;
   --receiver-fill: #332a42;
   --selection: #c3a4ef18;
-  --danger: #d7cae9;
+  --danger: #ee8290;
   --primary-foreground: #1a1524;
   --primary-hover: #caaff1;
   --shadow: 0 12px 40px #00000066;
@@ -363,7 +363,7 @@ kbd {
   --node-fill: #f2e3e7;
   --receiver-fill: #ecd8de;
   --selection: #9c416218;
-  --danger: #502b39;
+  --danger: #a52d44;
   --primary-foreground: #ffffff;
   --primary-hover: #893956;
   --shadow: 0 12px 40px #00000028;
@@ -393,7 +393,7 @@ kbd {
   --node-fill: #f0e9db;
   --receiver-fill: #e9e0cf;
   --selection: #87632318;
-  --danger: #483a1f;
+  --danger: #a52d44;
   --primary-foreground: #ffffff;
   --primary-hover: #77571f;
   --shadow: 0 12px 40px #00000028;
@@ -656,7 +656,9 @@ kbd {
   padding: 0 10px;
   font-size: 10px;
 }
-.button-danger {
+.button-danger,
+.destructive-action,
+.context-menu button.destructive-action {
   color: var(--danger);
   border-color: var(--border);
   background: transparent;
@@ -683,7 +685,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 20px 15px 18px;
+  padding: 20px 10px 18px;
   font-weight: 600;
 }
 .objects-header > b {
@@ -3314,4 +3316,63 @@ code {
   display: block;
   width: 100%;
   max-height: 320px;
+}
+
+/* Collapsing the object list changes only the view, never the project. */
+.object-panel.objects-collapsed {
+  width: 40px;
+}
+.objects-collapsed .objects-header {
+  padding: 16px 4px;
+  justify-content: center;
+}
+.objects-header > .objects-toggle {
+  margin-left: 0;
+  flex-shrink: 0;
+  padding: 4px;
+}
+.objects-collapsed .objects-toggle {
+  margin: 0;
+}
+.object-panel-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.object-panel-content[hidden] {
+  display: none;
+}
+.model-definitions {
+  margin: 12px 0;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.model-definitions > div {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  gap: 8px;
+  margin: 8px 0;
+}
+.model-definitions dt {
+  color: var(--text);
+  font-family: var(--font-mono), monospace;
+}
+.model-definitions dd {
+  margin: 0;
+  color: var(--muted);
+}
+.button-danger:hover,
+.destructive-action:hover,
+.context-menu button.destructive-action:hover {
+  color: var(--danger);
+  background: var(--panel-alt);
+  border-color: var(--danger);
+}
+
+.saved-project > button.destructive-action,
+.saved-project > button.destructive-action:hover,
+.point-row > button.destructive-action,
+.point-row > button.destructive-action:hover {
+  color: var(--danger);
 }

@@ -101,8 +101,38 @@ export function SimulationSettings() {
       <div className="section-title">MEASUREMENT MODEL</div>
       <div className="model-equation">rᵢ = ‖p − aᵢ‖ + εᵢ</div>
       <p className="small-copy">
-        Calibrated 2D ranges · metres. Independent seeded Gaussian range noise per transmitter.
-        Clock and RF properties are stored metadata in this phase.
+        This baseline uses distance plus noise to isolate the effects of transmitter geometry and
+        range uncertainty. It gives repeatable comparisons before adding propagation and clock
+        errors in Scientific laboratory.
+      </p>
+      <dl className="model-definitions">
+        <div>
+          <dt>rᵢ</dt>
+          <dd>Simulated range from transmitter i to the receiver, in metres.</dd>
+        </div>
+        <div>
+          <dt>p</dt>
+          <dd>Receiver position (x, y), which the solver estimates.</dd>
+        </div>
+        <div>
+          <dt>aᵢ</dt>
+          <dd>Known position (x, y) of transmitter i.</dd>
+        </div>
+        <div>
+          <dt>‖p − aᵢ‖</dt>
+          <dd>Straight-line Euclidean distance in the horizontal 2D plane.</dd>
+        </div>
+        <div>
+          <dt>εᵢ</dt>
+          <dd>
+            Independent, zero-mean Gaussian range error. The noise setting controls its standard
+            deviation in metres; the seed makes it reproducible.
+          </dd>
+        </div>
+      </dl>
+      <p className="small-copy">
+        This is a calibrated-range model. Clock and RF properties are stored metadata in this
+        baseline; they do not change these ranges.
       </p>
     </>
   );

@@ -220,6 +220,7 @@ export function ProjectsDialog({
                   <Archive size={14} />
                 </button>
                 <button
+                  className="destructive-action"
                   aria-label={`Delete ${p.name}`}
                   disabled={busy}
                   onClick={() => {

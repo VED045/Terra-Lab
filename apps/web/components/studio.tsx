@@ -23,6 +23,8 @@ import {
   BookOpen,
   Settings2,
   PanelRight,
+  PanelLeftClose,
+  PanelLeftOpen,
   HelpCircle,
   Sun,
   Moon,
@@ -124,6 +126,23 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
   const sceneView = useSceneView();
   const { project, selected, time, playing, dirty, logs, edit, log } = s;
   const speed = project.settings.speedMultiplier;
+  const [objectsCollapsed, setObjectsCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      setObjectsCollapsed(localStorage.getItem('terralab.objects-collapsed') === 'true');
+    } catch {
+      /* Optional view preference. */
+    }
+  }, []);
+  function toggleObjects() {
+    const collapsed = !objectsCollapsed;
+    setObjectsCollapsed(collapsed);
+    try {
+      localStorage.setItem('terralab.objects-collapsed', String(collapsed));
+    } catch {
+      /* Keep the control usable without storage. */
+    }
+  }
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -364,7 +383,15 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
       if (e.key === '?') setHelpOpen(true);
       if (e.key === '/') {
         e.preventDefault();
-        document.querySelector<HTMLInputElement>('[aria-label="Find network objects"]')?.focus();
+        setObjectsCollapsed(false);
+        try {
+          localStorage.setItem('terralab.objects-collapsed', 'false');
+        } catch {
+          /* Optional view preference. */
+        }
+        requestAnimationFrame(() =>
+          document.querySelector<HTMLInputElement>('[aria-label="Find network objects"]')?.focus(),
+        );
       }
       const keyMap: Record<string, ToolMode> = {
         v: 'select',
@@ -734,92 +761,114 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
         </div>
       </div>
       <div className="workspace-body">
-        <aside className="object-panel">
+        <aside
+          className={`object-panel ${objectsCollapsed ? 'objects-collapsed' : ''}`}
+          aria-label="Network objects"
+        >
           <div className="objects-header">
-            <span>Network objects</span>
-            <b>{project.objects.length}</b>
+            {!objectsCollapsed && (
+              <>
+                <span>Network objects</span>
+                <b>{project.objects.length}</b>
+                <button
+                  aria-label="Add transmitter at origin"
+                  onClick={() => s.add('anchor', { x: 0, y: 0 })}
+                >
+                  <Plus size={16} />
+                </button>
+              </>
+            )}
             <button
-              aria-label="Add transmitter at origin"
-              onClick={() => s.add('anchor', { x: 0, y: 0 })}
+              className="objects-toggle"
+              aria-label={objectsCollapsed ? 'Expand Network objects' : 'Collapse Network objects'}
+              aria-expanded={!objectsCollapsed}
+              aria-controls="network-objects-content"
+              onClick={toggleObjects}
             >
-              <Plus size={16} />
+              {objectsCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
             </button>
           </div>
-          <label className="object-search">
-            <Search size={14} />
-            <input
-              aria-label="Find network objects"
-              placeholder="Find an object…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <kbd>/</kbd>
-          </label>
-          <div className="objects-list">
-            {(['anchor', 'receiver', 'obstacle', 'trajectory'] as const).map((kind) => {
-              const list = project.objects.filter(
-                (o) => o.kind === kind && o.name.toLowerCase().includes(search.toLowerCase()),
-              );
-              const Icon = {
-                anchor: Radio,
-                receiver: Crosshair,
-                obstacle: Square,
-                trajectory: Route,
-              }[kind];
-              return (
-                <section key={kind}>
-                  <div className="object-group-title">
-                    <ChevronDown size={11} />
-                    {kind === 'anchor'
-                      ? 'TRANSMITTERS'
-                      : kind === 'receiver'
-                        ? 'RECEIVERS'
-                        : kind === 'obstacle'
-                          ? 'OBSTACLES'
-                          : 'TRAJECTORIES'}
-                    <span>{list.length}</span>
-                  </div>
-                  {list.length ? (
-                    list.map((o) => (
-                      <div
-                        key={o.id}
-                        className={`object-list-row ${selected.includes(o.id) ? 'selected' : ''}`}
-                      >
-                        <button
-                          className={`object-select ${kind}`}
-                          onClick={(e) =>
-                            s.select(e.shiftKey ? [...new Set([...selected, o.id])] : [o.id])
-                          }
+          <div
+            id="network-objects-content"
+            className="object-panel-content"
+            hidden={objectsCollapsed}
+          >
+            <label className="object-search">
+              <Search size={14} />
+              <input
+                aria-label="Find network objects"
+                placeholder="Find an object…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <kbd>/</kbd>
+            </label>
+            <div className="objects-list">
+              {(['anchor', 'receiver', 'obstacle', 'trajectory'] as const).map((kind) => {
+                const list = project.objects.filter(
+                  (o) => o.kind === kind && o.name.toLowerCase().includes(search.toLowerCase()),
+                );
+                const Icon = {
+                  anchor: Radio,
+                  receiver: Crosshair,
+                  obstacle: Square,
+                  trajectory: Route,
+                }[kind];
+                return (
+                  <section key={kind}>
+                    <div className="object-group-title">
+                      <ChevronDown size={11} />
+                      {kind === 'anchor'
+                        ? 'TRANSMITTERS'
+                        : kind === 'receiver'
+                          ? 'RECEIVERS'
+                          : kind === 'obstacle'
+                            ? 'OBSTACLES'
+                            : 'TRAJECTORIES'}
+                      <span>{list.length}</span>
+                    </div>
+                    {list.length ? (
+                      list.map((o) => (
+                        <div
+                          key={o.id}
+                          className={`object-list-row ${selected.includes(o.id) ? 'selected' : ''}`}
                         >
-                          <Icon size={15} />
-                          <span>{o.name}</span>
-                        </button>
-                        <button
-                          className="object-enable"
-                          aria-label={`${o.enabled ? 'Disable' : 'Enable'} ${o.name}`}
-                          onClick={() => s.update(o.id, { enabled: !o.enabled })}
-                        >
-                          {o.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="no-objects">{search ? 'No matches' : 'None added'}</div>
-                  )}
-                </section>
-              );
-            })}
-          </div>
-          <div className="object-panel-footer">
-            <span className="eyebrow">PROJECT REFERENCE</span>
-            <p>
-              GNSS-independent
-              <br />
-              terrestrial positioning
-            </p>
-            <button onClick={() => setHelpOpen(true)}>
-              Methodology notes <ArrowUpRight size={12} />
-            </button>
+                          <button
+                            className={`object-select ${kind}`}
+                            onClick={(e) =>
+                              s.select(e.shiftKey ? [...new Set([...selected, o.id])] : [o.id])
+                            }
+                          >
+                            <Icon size={15} />
+                            <span>{o.name}</span>
+                          </button>
+                          <button
+                            className="object-enable"
+                            aria-label={`${o.enabled ? 'Disable' : 'Enable'} ${o.name}`}
+                            onClick={() => s.update(o.id, { enabled: !o.enabled })}
+                          >
+                            {o.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="no-objects">{search ? 'No matches' : 'None added'}</div>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+            <div className="object-panel-footer">
+              <span className="eyebrow">PROJECT REFERENCE</span>
+              <p>
+                GNSS-independent
+                <br />
+                terrestrial positioning
+              </p>
+              <button onClick={() => setHelpOpen(true)}>
+                Methodology notes <ArrowUpRight size={12} />
+              </button>
+            </div>
           </div>
         </aside>
         <div className="center-workspace">

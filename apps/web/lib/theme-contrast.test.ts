@@ -3,12 +3,14 @@ import { describe, it, expect } from 'vitest';
 import { workspaceThemes } from '@terralab/shared';
 const css = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 function palette(id: string) {
-  const block = css.match(new RegExp(`\\.theme-${id} \\{([^}]+)\\}`))?.[1];
+  const block = css.match(
+    id === 'dark' ? /\.tooltip \{([^}]+)\}/ : new RegExp(`\\.theme-${id} \\{([^}]+)\\}`),
+  )?.[1];
   if (!block) throw Error(`Missing CSS palette ${id}`);
   return Object.fromEntries(
-    Array.from(block.matchAll(/--([\w-]+):\s*(#[\da-f]{6,8})\s*;/g), (match) => [
+    Array.from(block.matchAll(/--([\w-]+):\s*(#[\da-f]{3,8})\s*;/g), (match) => [
       match[1],
-      match[2],
+      match[2].length === 4 ? '#' + [...match[2].slice(1)].map((c) => c + c).join('') : match[2],
     ]),
   );
 }
@@ -28,6 +30,14 @@ function contrast(a: string, b: string) {
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
 describe('Additional palette readability', () => {
+  it.each(workspaceThemes)('$name uses readable red for destructive actions', (theme) => {
+    const p = palette(theme.id);
+    const [r, g, b] = channels(p.danger);
+    expect(r).toBeGreaterThan(g * 1.4);
+    expect(r).toBeGreaterThan(b * 1.4);
+    for (const surface of ['bg', 'panel', 'panel-alt'])
+      expect(contrast(p.danger, p[surface])).toBeGreaterThanOrEqual(4.5);
+  });
   it.each(workspaceThemes.slice(2))(
     '$name has readable body, secondary and primary-button text',
     (theme) => {
@@ -40,12 +50,16 @@ describe('Additional palette readability', () => {
       expect(contrast(p['primary-foreground'], p['primary-hover'])).toBeGreaterThanOrEqual(4.5);
     },
   );
-  it.each(['mono-dark', 'mono-light'])('%s keeps all semantic colors grayscale', (id) => {
-    const p = palette(id);
-    for (const color of Object.values(p)) {
-      const [r, g, b] = channels(color);
-      expect(r).toBe(g);
-      expect(g).toBe(b);
-    }
-  });
+  it.each(['mono-dark', 'mono-light'])(
+    '%s keeps its palette grayscale except explicit destructive actions',
+    (id) => {
+      const p = palette(id);
+      for (const [name, color] of Object.entries(p)) {
+        if (name === 'danger') continue;
+        const [r, g, b] = channels(color);
+        expect(r).toBe(g);
+        expect(g).toBe(b);
+      }
+    },
+  );
 });

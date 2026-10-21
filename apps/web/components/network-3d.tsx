@@ -331,7 +331,7 @@ export default function Network3D({ verifiedSolution }: { verifiedSolution?: Sol
           <Button size="sm" disabled={readonly || !chosen} onClick={s.duplicate}>
             Duplicate selected
           </Button>
-          <Button size="sm" disabled={readonly || !chosen} onClick={s.remove}>
+          <Button variant="danger" size="sm" disabled={readonly || !chosen} onClick={s.remove}>
             Delete selected
           </Button>
           <Button

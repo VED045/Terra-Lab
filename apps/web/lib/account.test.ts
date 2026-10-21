@@ -4,7 +4,7 @@ const { client } = vi.hoisted(() => ({
   client: { auth: { getSession: vi.fn(), getUser: vi.fn(), updateUser: vi.fn() } },
 }));
 vi.mock('./persistence', () => ({ supabase: () => client }));
-import { displayName, initials, getAccount, updateDisplayName } from './account';
+import { displayName, initials, getAccount, updateDisplayName, accountAuthError } from './account';
 const user = {
   id: 'test-user',
   email: 'researcher@example.test',
@@ -50,5 +50,27 @@ describe('Researcher profile', () => {
       error: Error('Session expired'),
     });
     await expect(updateDisplayName('Valid name')).rejects.toThrow('Session expired');
+  });
+});
+
+describe('Signup errors', () => {
+  it('explains a project-wide email limit rather than suggesting another address', () => {
+    const failure = accountAuthError({
+      code: 'over_email_send_rate_limit',
+      message: 'email rate limit exceeded',
+    });
+    expect(failure.emailLimited).toBe(true);
+    expect(failure.message).toContain('shared across email addresses');
+    expect(failure.message).toContain('custom SMTP');
+  });
+  it('recognizes older email-limit responses and preserves unrelated Auth errors', () => {
+    expect(accountAuthError(Error('Email rate limit exceeded')).emailLimited).toBe(true);
+    expect(accountAuthError(Error('Invalid login credentials'))).toEqual({
+      message: 'Invalid login credentials',
+      emailLimited: false,
+    });
+    expect(accountAuthError({ code: 'email_address_not_authorized' }).message).toContain(
+      'cannot deliver',
+    );
   });
 });

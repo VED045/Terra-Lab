@@ -1,6 +1,6 @@
 # Research peer guide
 
-Start the frontend and API with `npm run dev`, then open the local app. A backend is needed for scientific experiments, CSI examples and generated PDF reports. Browser QR/editor/local saves work without it. Ten workspace themes remain in Settings. Create an account/confirm email/sign in for cloud operations after installing the Phase 3 migrations.
+Start the frontend and API with `npm run dev`, then open the local app. A backend is needed for scientific experiments, CSI examples and generated PDF reports. Browser QR/editor/local saves work without it. Ten workspace themes remain in Settings. Create an account and sign in for cloud operations after installing the Phase 3 migrations; confirm your email if required by the project’s Auth settings.
 
 ## Networks and revisions
 
@@ -69,3 +69,14 @@ Use **Invite people** to select an owned studio, team or project, find/add eligi
 ## Project library and blank projects
 
 **Home** shows the research dashboard. **Projects** opens the project library and clears earlier search/filter selections so your projects are visible. Use **New Project** for a blank canvas with no transmitters, receivers, obstacles or trajectories, or select a starter in **Starting network**. The new project keeps your workspace theme. Add your own objects using the studio tools.
+
+
+## Panel visibility, range model and signup
+
+On desktop, use the panel icon beside **Network objects** to collapse the entire object list and project-reference panel. The remaining rail expands it again. Your preference is remembered in this browser; it does not change objects, selection or undo history. Press **/** to expand the panel and focus object search. Compact mobile layouts retain their existing automatic panel hiding.
+
+The inspector’s **Simulation → Measurement model** explains the calibrated baseline and every symbol: rᵢ is simulated range in metres, p is the receiver’s unknown 2D position, aᵢ is transmitter i’s known 2D position, ‖p − aᵢ‖ is horizontal Euclidean distance, and εᵢ is independent zero-mean Gaussian range error with the configured standard deviation and seed. The model isolates geometry and range noise for repeatable solver comparisons. Advanced propagation and clock effects belong to Scientific laboratory. Delete actions use readable red in every theme, including the monochrome themes.
+
+Signup follows the hosted Auth settings. If signup returns a session, the account dialog reports that you are signed in. Otherwise it asks you to check email when confirmation is required. Email-send quotas apply to the entire project, not individual addresses; the dialog explains this and pauses repeated signup attempts for a minimum of 60 seconds while leaving existing-account sign-in available. That pause is not a promise that the server quota has reset. Public signup with email ownership verification requires a configured SMTP sender; see Supabase’s [email delivery documentation](https://supabase.com/docs/guides/auth/auth-smtp).
+
+On 21 October 2026 the project owner explicitly approved disabling email confirmation on the hosted Terra-Lab main project for development/testing. New signup therefore does not require sending a confirmation email. This setting does not prove ownership of an email address. Re-enable confirmation and configure SMTP before relying on verified email identities.

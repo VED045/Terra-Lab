@@ -15,7 +15,9 @@ The new browser test uses separate owner, requester, second peer and outsider co
 
 PGlite executes real PostgreSQL but serializes calls and uses minimal auth/storage fixture schemas. It does not prove hosted Auth refresh, actual PostgREST exposure, realtime delivery, hosted storage HTTP, multi-connection row-lock contention or email identity verification. Existing skipped tests remain reported; none were weakened or newly skipped. See VERIFICATION.md for actual run results.
 
-## Hosted acceptance — pending, no production writes authorized
+## Hosted lifecycle acceptance — pending
+
+The owner subsequently authorized the missing collaboration migration and unverified signup configuration on the existing hosted project; those limited checks are recorded in VERIFICATION.md. The full multi-account staging procedure below has not been performed.
 
 Prerequisites: an isolated disposable staging project with every migration installed by an authorized operator, a staging frontend pointing to its public URL/key, and at least two verified accounts (preferably owner, viewer, editor and outsider) in separate browser profiles. No staging test-account credentials were supplied for this task. The existing hosted script explicitly excludes the user's existing project and must not be pointed at production. Do not print credentials or use a service-role key in a browser.
 

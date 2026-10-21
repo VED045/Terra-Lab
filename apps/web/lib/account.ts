@@ -38,3 +38,25 @@ export async function updateDisplayName(value: string): Promise<User> {
   if (!data.user) throw Error('Sign in again to update your profile.');
   return data.user;
 }
+
+/** Auth quotas are project-wide; changing the recipient cannot bypass them. */
+export function accountAuthError(reason: unknown): { message: string; emailLimited: boolean } {
+  const failure =
+    reason && typeof reason === 'object' ? (reason as { code?: string; message?: string }) : {};
+  const emailLimited =
+    failure.code === 'over_email_send_rate_limit' ||
+    /email.*rate limit/i.test(failure.message ?? '');
+  if (emailLimited)
+    return {
+      emailLimited: true,
+      message:
+        'The authentication email quota for this TerraLab project has been reached. It is shared across email addresses, so trying another address will not help. Wait before retrying, or ask the administrator to configure a custom SMTP sender. Sign-in to an existing account is still available.',
+    };
+  if (failure.code === 'email_address_not_authorized')
+    return {
+      emailLimited: false,
+      message:
+        'This project’s default email sender cannot deliver to that address. Ask the administrator to configure custom SMTP for signup emails.',
+    };
+  return { message: failure.message || 'Authentication failed.', emailLimited: false };
+}

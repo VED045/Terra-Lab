@@ -590,6 +590,7 @@ export function ResearchDashboard({
                   )}
                   {p.role === 'owner' && (
                     <Button
+                      variant="danger"
                       size="sm"
                       disabled={busy}
                       onClick={() => {
@@ -841,6 +842,7 @@ export function ResearchDashboard({
                 </Button>
                 {t.owner_id === data.userId && (
                   <Button
+                    variant="danger"
                     disabled={busy}
                     onClick={() =>
                       void action(async () => {

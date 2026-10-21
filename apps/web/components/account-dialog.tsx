@@ -1,10 +1,16 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
 import { Check, LogOut, Mail, ShieldCheck, FolderOpen, UserRound } from 'lucide-react';
 import { supabase, listProjects } from '@/lib/persistence';
-import { getAccount, displayName, initials, updateDisplayName } from '@/lib/account';
+import {
+  getAccount,
+  displayName,
+  initials,
+  updateDisplayName,
+  accountAuthError,
+} from '@/lib/account';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 
@@ -26,6 +32,27 @@ export function AccountDialog({
     [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(''),
     [error, setError] = useState('');
+  const submitting = useRef(false);
+  const [signupRetryAt, setSignupRetryAt] = useState(0);
+  const [retrySeconds, setRetrySeconds] = useState(0);
+  useEffect(() => {
+    try {
+      setSignupRetryAt(Number(sessionStorage.getItem('terralab.signup-retry-at')) || 0);
+    } catch {
+      /* Optional client cooldown. */
+    }
+  }, []);
+  useEffect(() => {
+    if (!signupRetryAt) return;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((signupRetryAt - Date.now()) / 1000));
+      setRetrySeconds(remaining);
+      if (!remaining) setSignupRetryAt(0);
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [signupRetryAt]);
   const db = supabase();
   const projects = useQuery({
     queryKey: ['projects'],
@@ -62,12 +89,13 @@ export function AccountDialog({
   }, [user]);
   async function signIn(event: React.FormEvent) {
     event.preventDefault();
-    if (!db) return;
+    if (!db || submitting.current || (mode === 'register' && Date.now() < signupRetryAt)) return;
+    submitting.current = true;
     setBusy(true);
     setMessage('');
     setError('');
     try {
-      const { error } =
+      const { data, error } =
         mode === 'login'
           ? await db.auth.signInWithPassword({ email, password })
           : await db.auth.signUp({ email, password });
@@ -76,13 +104,27 @@ export function AccountDialog({
       setUser(await getAccount());
       setMessage(
         mode === 'register'
-          ? 'Account created. Check your email to confirm your address before signing in.'
+          ? data.session
+            ? 'Account created. You are signed in.'
+            : 'Signup submitted. If confirmation is required for this address, check your email before signing in.'
           : 'Signed in. Your profile and cloud projects are ready.',
       );
       onSession();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Authentication failed.');
+      const failure = accountAuthError(reason);
+      setError(failure.message);
+      if (mode === 'register' && failure.emailLimited) {
+        // A minimum pause prevents repeated email attempts; it is not the server's quota reset time.
+        const retryAt = Date.now() + 60000;
+        setSignupRetryAt(retryAt);
+        try {
+          sessionStorage.setItem('terralab.signup-retry-at', String(retryAt));
+        } catch {
+          /* In-memory pause still applies. */
+        }
+      }
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
@@ -222,10 +264,15 @@ export function AccountDialog({
       ) : (
         <>
           <div className="account-modes">
-            <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>
+            <button
+              disabled={busy}
+              className={mode === 'login' ? 'active' : ''}
+              onClick={() => setMode('login')}
+            >
               Sign in
             </button>
             <button
+              disabled={busy}
               className={mode === 'register' ? 'active' : ''}
               onClick={() => setMode('register')}
             >
@@ -254,8 +301,18 @@ export function AccountDialog({
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </label>
-            <Button variant="default" type="submit" disabled={busy}>
-              {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
+            <Button
+              variant="default"
+              type="submit"
+              disabled={busy || (mode === 'register' && retrySeconds > 0)}
+            >
+              {busy
+                ? 'Please wait…'
+                : mode === 'login'
+                  ? 'Sign in'
+                  : retrySeconds > 0
+                    ? `Retry signup in ${retrySeconds}s`
+                    : 'Create account'}
             </Button>
           </form>
         </>

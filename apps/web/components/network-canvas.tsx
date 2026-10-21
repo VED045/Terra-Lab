@@ -850,6 +850,7 @@ export default function NetworkCanvas({
             Duplicate selection
           </button>
           <button
+            className="destructive-action"
             onClick={() => {
               useStudio.getState().remove();
               setMenu(null);

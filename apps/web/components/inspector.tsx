@@ -478,6 +478,7 @@ function PointEditor({
             />
           ))}
           <button
+            className="destructive-action"
             aria-label={`Remove point ${i + 1}`}
             disabled={points.length <= minimum}
             onClick={() => onChange(points.filter((_, j) => i !== j))}
