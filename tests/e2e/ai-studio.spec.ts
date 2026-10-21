@@ -4,6 +4,7 @@ test('AI Studio shows honest unauthenticated states and fits desktop and mobile'
   page,
 }) => {
   await page.goto('/ai');
+  await page.getByRole('checkbox', { name: 'Research agent', exact: true }).uncheck();
   await expect(page.getByRole('heading', { name: 'AI Studio', exact: true })).toBeVisible();
   await expect(page.getByRole('alert', { name: 'AI Studio error' })).toContainText('Sign in');
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
@@ -59,6 +60,7 @@ test('AI Studio renders verified context, streamed text, retry and errors using 
     return route.fulfill({ json: data });
   });
   await page.getByRole('link', { name: 'AI Studio', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Research agent', exact: true }).uncheck();
   await expect(page.getByText('Local development snapshot', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Check connection', exact: true }).click();
   await page

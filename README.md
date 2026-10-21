@@ -436,6 +436,8 @@ Select two to four saved experiments to compare full-data metrics, configuration
 
 ## AI Studio foundation
 
+Phase 2 extends `/ai` with a bounded research agent, reviewed network/parameter changes, real queued experiments, recorded metrics, comparison, cancellation and recovery. See [workflows](docs/ai/AGENT_WORKFLOWS.md), [tools and permissions](docs/ai/TOOLS_AND_PERMISSIONS.md), [actual parameter reference](docs/ai/PARAMETER_REFERENCE.md), and [OpenCode Free / Harness setup](docs/ai/FREE_MODEL_AND_HARNESS_SETUP.md). Explanation-only mode retains the original Phase 1 behavior; live inference requires your supported provider configuration.
+
 Open `/ai` from the project library or Network studio. Phase 1 provides read-only
 project explanations through your own DeepSeek API account, with optional local
 Ollama in explicit development mode. No autonomous edits or experiment execution.

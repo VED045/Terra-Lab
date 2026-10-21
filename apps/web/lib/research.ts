@@ -237,10 +237,11 @@ export async function sha256(bytes: Uint8Array) {
 export async function downloadResearchResult(
   value: unknown,
   id: string,
+  scopedClient = supabase(),
 ): Promise<ExperimentResult> {
   z.string().uuid().parse(id);
   const m = manifestSchema.parse(value),
-    db = supabase();
+    db = scopedClient;
   if (!db) throw Error('Sign in to read the saved cloud experiment');
   const chunks: Uint8Array[] = [];
   let size = 0;

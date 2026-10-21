@@ -10,6 +10,7 @@ test('browser → actual Next routes → minimal local context → Ollama protoc
   await expect(page.getByRole('status')).toContainText('Project saved');
   await page.getByRole('button', { name: 'Cycle workspace theme', exact: true }).click();
   await page.getByRole('link', { name: 'AI Studio', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Research agent', exact: true }).uncheck();
   await expect(page.getByText('Local development snapshot', { exact: true })).toBeVisible();
   await expect(page.locator('main')).toHaveClass(/theme-light/);
   await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('ollama');

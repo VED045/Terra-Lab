@@ -305,6 +305,118 @@
   outline: 2px solid var(--cyan);
   outline-offset: 4px;
 }
+.ai-agent-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto !important;
+  align-self: center;
+}
+.ai-agent-mode input {
+  width: auto;
+}
+.ai-action-review,
+.ai-run-result {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 18px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  max-height: 40vh;
+  overflow: auto;
+}
+.ai-action-review h2,
+.ai-run-result h2 {
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.ai-action-review p,
+.ai-run-result p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 8px 0;
+}
+.ai-action-review pre,
+.ai-tool-timeline pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font:
+    10px/1.6 Consolas,
+    monospace;
+  max-height: 220px;
+  overflow: auto;
+}
+.ai-action-review svg {
+  width: 100%;
+  max-height: 170px;
+  background: var(--bg);
+  fill: var(--cyan);
+  margin: 12px 0;
+}
+.ai-action-review > div,
+.ai-run-result > div,
+.ai-research-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+.ai-tool-timeline {
+  padding-left: 16px;
+}
+.ai-tool-timeline strong {
+  color: var(--text);
+  font-weight: 500;
+}
+.ai-tool-timeline details {
+  max-width: 100%;
+}
+.ai-studio summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ai-run-result table {
+  border-collapse: collapse;
+  font-size: 11px;
+  width: 100%;
+}
+.ai-run-result td,
+.ai-run-result th {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.ai-run-result caption {
+  text-align: left;
+  color: var(--muted);
+  margin: 10px 0;
+}
+.ai-changed-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  max-height: 90px;
+  overflow: auto;
+  font-size: 10px;
+  margin: 12px 0;
+}
+.ai-changed-links p {
+  width: 100%;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.ai-changed-links a,
+.ai-record-link {
+  color: var(--cyan);
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.ai-record-link {
+  display: inline-block;
+  margin: 6px 0 12px;
+}
 @media (max-width: 950px) {
   .ai-layout {
     grid-template-columns: 220px minmax(0, 1fr);

@@ -3,7 +3,14 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Check, Circle, Network, Settings2, Square, RotateCcw } from 'lucide-react';
 import type { Project } from '@terralab/shared';
-import { listProjects, supabase } from '@/lib/persistence';
+import { listProjects, supabase, localSave, localList } from '@/lib/persistence';
+import { projectContent } from '@/lib/project-content';
+import { projectSchema } from '@terralab/shared';
+import { laboratoryRequest, saveExperiment, savedExperiments } from '@/lib/laboratory';
+import { downloadFile } from '@/lib/downloads';
+import { freshCopy } from '@/lib/research';
+import type { AgentEvent, ApprovalView } from '@/lib/ai/agent-contracts';
+import { AIActionReview } from './ai-action-review';
 import { useStudio } from '@/lib/store';
 import { providers, type Message, type ProviderId, type StreamEvent } from '@/lib/ai/contracts';
 import { NetworkLogo } from './network-logo';
@@ -44,9 +51,26 @@ export default function AIStudio() {
   const [error, setError] = useState('');
   const [activity, setActivity] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
+  const [agentEnabled, setAgentEnabled] = useState(true);
+  const [plans, setPlans] = useState<string[]>([]);
+  const [toolEvents, setToolEvents] = useState<Extract<AgentEvent, { type: 'tool' }>[]>([]);
+  const [approval, setApproval] = useState<ApprovalView | null>(null);
+  const [recovery, setRecovery] = useState<ApprovalView | null>(null);
+  const [trackedRun, setTrackedRun] = useState('');
+  const [changedProject, setChangedProject] = useState<Project | null>(null);
+  const [changedEntities, setChangedEntities] = useState<string[]>([]);
+  const [runView, setRunView] = useState<{
+    id: string;
+    status: string;
+    completed: number;
+    planned: number;
+    error?: string | null;
+    metrics: { estimator: string; rmseM: number | null; fixes: number; attempted: number }[];
+  } | null>(null);
   const keyInput = useRef<HTMLInputElement>(null); // Uncontrolled; cleared immediately after submission.
   const abort = useRef<AbortController | null>(null);
   const revision = useRef(0);
+  const contextRevision = useRef(0);
   const lastQuestion = useRef('');
   const end = useRef<HTMLDivElement>(null);
 
@@ -72,12 +96,21 @@ export default function AIStudio() {
   }
   function resetConversation() {
     revision.current++;
+    contextRevision.current++;
     abort.current?.abort();
     setBusy(false);
     setMessages([]);
     setActivity([]);
     setError('');
     setNotice('');
+    setPlans([]);
+    setToolEvents([]);
+    setApproval(null);
+    setRecovery(null);
+    setTrackedRun('');
+    setRunView(null);
+    setChangedProject(null);
+    setChangedEntities([]);
     lastQuestion.current = '';
   }
   useEffect(() => {
@@ -98,6 +131,7 @@ export default function AIStudio() {
         if (id && result.some((p) => p.id === id)) {
           setProjectId(id);
           setExperimentId(query.get('experiment') || '');
+          setTrackedRun(query.get('experiment') || '');
         }
       } catch (e) {
         if (active && epoch === loadEpoch)
@@ -153,7 +187,54 @@ export default function AIStudio() {
       active = false;
       controller.abort();
     };
-  }, [projectId, experimentId, settings]);
+  }, [projectId, experimentId, settings, projects]);
+  useEffect(() => {
+    if (!trackedRun || !projectId) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
+    const epoch = contextRevision.current;
+    async function poll() {
+      try {
+        const result = await (
+          await api('tools', {
+            method: 'POST',
+            signal: controller.signal,
+            body: JSON.stringify({
+              context: contextInput(),
+              name: 'inspect_run',
+              arguments: { runId: trackedRun },
+            }),
+          })
+        ).json();
+        if (stopped || epoch !== contextRevision.current) return;
+        if (!result.ok) throw Error(result.message);
+        setRunView(result.data);
+        if (['queued', 'running'].includes(result.data.status))
+          timer = setTimeout(() => void poll(), 2500);
+        else {
+          setNotice(
+            `Actual run ${result.data.id}: ${result.data.status} · ${result.data.completed}/${result.data.planned} samples.`,
+          );
+          if (
+            settings?.mode === 'local-development' &&
+            !(await savedExperiments()).some((r) => r.id === trackedRun)
+          ) {
+            const full = await laboratoryRequest('?id=' + trackedRun + '&detail=true');
+            if (!stopped && epoch === contextRevision.current) await saveExperiment(full);
+          }
+        }
+      } catch (e) {
+        if (!stopped && !controller.signal.aborted) setError((e as Error).message);
+      }
+    }
+    void poll();
+    return () => {
+      stopped = true;
+      controller.abort();
+      if (timer) clearTimeout(timer);
+    };
+  }, [trackedRun, projectId, projects]);
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'nearest' });
   }, [messages]);
@@ -234,7 +315,7 @@ export default function AIStudio() {
     }
   }
   async function send(question = draft, retry = false) {
-    if (busy || !question.trim() || !context || !model || !connected) return;
+    if (busy || approval || !question.trim() || !context || !model || !connected) return;
     const current = ++revision.current;
     const controller = new AbortController();
     abort.current = controller;
@@ -248,10 +329,16 @@ export default function AIStudio() {
     setError('');
     setNotice('');
     setBusy(true);
-    setActivity(['Preparing a read-only response with fresh project authorization…']);
+    setActivity([
+      agentEnabled
+        ? 'Preparing bounded tool workflow with fresh project authorization…'
+        : 'Preparing a read-only response with fresh project authorization…',
+    ]);
+    setPlans([]);
+    setToolEvents([]);
     lastQuestion.current = question;
     try {
-      const response = await api('chat', {
+      const response = await api(agentEnabled ? 'agent' : 'chat', {
         method: 'POST',
         body: JSON.stringify({ provider, model, context: contextInput(), messages: outgoing }),
         signal: controller.signal,
@@ -271,9 +358,13 @@ export default function AIStudio() {
         buffer += decoder.decode(chunk.value, { stream: true });
         let newline;
         while ((newline = buffer.indexOf('\n')) !== -1) {
-          const event = JSON.parse(buffer.slice(0, newline)) as StreamEvent;
+          const event = JSON.parse(buffer.slice(0, newline)) as StreamEvent | AgentEvent;
           buffer = buffer.slice(newline + 1);
           if (event.type === 'activity') setActivity((items) => [...items, event.text]);
+          if (event.type === 'plan') setPlans((items) => [...items, event.text]);
+          if (event.type === 'tool')
+            setToolEvents((items) => [...items.filter((item) => item.id !== event.id), event]);
+          if (event.type === 'approval') setApproval(event.action);
           if (event.type === 'text')
             setMessages((items) =>
               items.map((m, i) =>
@@ -287,7 +378,9 @@ export default function AIStudio() {
       if (!completed) throw Error('The response ended early. Retry when ready.');
       setActivity((items) => [
         ...items,
-        'Text response completed. No network changes or tests executed.',
+        agentEnabled
+          ? 'Agent turn completed. Proposed mutations still require human review; only recorded tool results are verified.'
+          : 'Text response completed. No network changes or tests executed.',
       ]);
     } catch (e) {
       if (current !== revision.current) return;
@@ -300,6 +393,162 @@ export default function AIStudio() {
       }
     }
   }
+  async function inspectLatestRun() {
+    const epoch = revision.current;
+    setError('');
+    try {
+      const result = await (
+        await api('tools', {
+          method: 'POST',
+          body: JSON.stringify({ context: contextInput(), name: 'inspect_run', arguments: {} }),
+        })
+      ).json();
+      if (!result.ok) throw Error(result.message);
+      if (epoch !== revision.current) return;
+      setRunView(result.data);
+      setTrackedRun(result.data.id);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  async function requestCancellation() {
+    const epoch = revision.current;
+    setError('');
+    try {
+      const result = await (
+        await api('tools', {
+          method: 'POST',
+          body: JSON.stringify({
+            context: contextInput(),
+            name: 'propose_cancel_run',
+            arguments: { runId: trackedRun },
+          }),
+        })
+      ).json();
+      if (!result.ok) throw Error(result.message);
+      if (epoch !== revision.current) return;
+      setApproval(result.approval);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  async function reviewAction(decision: 'approve' | 'cancel') {
+    if (!approval || busy) return;
+    const epoch = revision.current;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await (
+        await api('approve', {
+          method: 'POST',
+          body: JSON.stringify({ context: contextInput(), token: approval.token, decision }),
+        })
+      ).json();
+      if (epoch !== revision.current) return;
+      if (result.project) {
+        const saved = projectSchema.parse(result.project);
+        let recoveryCopy: Project | null = null;
+        if (result.persistence === 'browser') {
+          const current = projects.find((p) => p.id === projectId);
+          if (!current)
+            throw Error('Project context changed before the local save. Refresh and review again.');
+          const stored = localList(localStorage).find((p) => p.id === projectId);
+          if (!stored || projectContent(stored) !== projectContent(current)) {
+            setProjects(localList(localStorage));
+            throw Error(
+              'The saved local project changed after preview. Nothing was overwritten. Request a fresh proposal.',
+            );
+          }
+          if (saved.id === current.id) {
+            recoveryCopy = freshCopy(current, `${current.name} · before AI`);
+            localSave(localStorage, recoveryCopy);
+          }
+          localSave(localStorage, saved);
+        }
+        setProjects((items) => [
+          saved,
+          ...(recoveryCopy ? [recoveryCopy] : []),
+          ...items.filter((p) => p.id !== saved.id),
+        ]);
+        setChangedProject(saved);
+        setChangedEntities(result.entityIds || []);
+        const studio = useStudio.getState();
+        if (!studio.dirty && studio.project.id === saved.id) {
+          studio.load(saved);
+          localStorage.setItem('terralab.active.v1', JSON.stringify(saved));
+        }
+        setRecovery(result.undo || null);
+        setActivity((items) => [
+          ...items,
+          `Confirmed: saved actual project ${saved.id}, revision ${saved.cloudVersion ?? 'local'}.`,
+        ]);
+        if (saved.id !== projectId) {
+          setProjectId(saved.id);
+          setMessages([]);
+        }
+      }
+      if (result.runId) {
+        setTrackedRun(result.runId);
+        setRunView(null);
+      }
+      setApproval(null);
+      setNotice(
+        result.state === 'local_save_required'
+          ? 'Approved changes saved through the browser project store. Existing unsaved Network studio drafts are preserved.'
+          : result.message,
+      );
+      setDraft(
+        result.runId
+          ? `Continue the original task. Inspect actual run ${result.runId} and report its real status before comparing results.`
+          : 'Continue the original task. Inspect the saved project to verify what changed, then propose the next controlled step if needed.',
+      );
+    } catch (e) {
+      if (epoch === revision.current) {
+        setError((e as Error).message);
+        setApproval(null);
+      }
+    } finally {
+      if (epoch === revision.current) setBusy(false);
+    }
+  }
+  async function downloadRun(format: 'json' | 'csv') {
+    const epoch = contextRevision.current;
+    try {
+      const response = await api('export', {
+        method: 'POST',
+        body: JSON.stringify({ context: contextInput(), runId: trackedRun, format }),
+      });
+      const data = await response.blob();
+      if (epoch !== contextRevision.current) return;
+      downloadFile(
+        new File([data], `terralab-${trackedRun}.${format}`, {
+          type: format === 'csv' ? 'text/csv' : 'application/json',
+        }),
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  async function verifyTools() {
+    const epoch = revision.current;
+    setChecking(true);
+    setError('');
+    try {
+      const result = await (
+        await api('compatibility', { method: 'POST', body: JSON.stringify({ provider, model }) })
+      ).json();
+      if (epoch !== revision.current) return;
+      setNotice(
+        result.checked
+          ? 'Tool calling and structured JSON verified by actual provider probes.'
+          : 'Compatibility was not verified.',
+      );
+    } catch (e) {
+      if (epoch === revision.current) setError((e as Error).message);
+    } finally {
+      if (epoch === revision.current) setChecking(false);
+    }
+  }
   return (
     <main className={`ai-studio research-page theme-${theme}`}>
       <header className="ai-header">
@@ -308,7 +557,11 @@ export default function AIStudio() {
         </Link>
         <div>
           <h1>AI Studio</h1>
-          <p>Research assistant · Read only</p>
+          <p>
+            {agentEnabled
+              ? 'Research agent · Changes require review'
+              : 'Research assistant · Read only'}
+          </p>
         </div>
         <nav aria-label="AI Studio navigation">
           <Link href="/projects">Projects</Link>
@@ -381,14 +634,18 @@ export default function AIStudio() {
                 <p>No saved laboratory configuration.</p>
               )}
               {context.run && <p>Selected run: {context.run.status}</p>}
-              <p>Configuration only. No measured results are sent.</p>
+              <p>
+                {agentEnabled
+                  ? 'Tools may inspect authorized synthetic measurements and actual recorded metrics.'
+                  : 'Configuration only. No measured results are sent.'}
+              </p>
             </>
           )}
           <div className="ai-boundary">
             <Check size={16} />
             <p>
-              The assistant can explain and propose. Network edits and experiment execution stay
-              with you.
+              The assistant can inspect and propose. You review edits and experiment submissions
+              before execution.
             </p>
           </div>
           <section className="ai-activity" aria-label="Verified activity">
@@ -399,10 +656,54 @@ export default function AIStudio() {
                 <li key={i}>{item}</li>
               ))}
             </ol>
+            {plans.length > 0 && (
+              <section aria-label="Proposed plan">
+                <h3>Proposed plan</h3>
+                {plans.map((plan, index) => (
+                  <p key={index}>{plan}</p>
+                ))}
+              </section>
+            )}
+            <ol className="ai-tool-timeline" aria-live="polite">
+              {toolEvents.map((event) => (
+                <li key={event.id}>
+                  <strong>
+                    {event.name} · {event.state}
+                  </strong>
+                  <p>{event.summary}</p>
+                  {event.result !== undefined && (
+                    <details>
+                      <summary>Actual tool result</summary>
+                      <pre>{JSON.stringify(event.result, null, 2)}</pre>
+                    </details>
+                  )}
+                </li>
+              ))}
+            </ol>
           </section>
         </aside>
         <section className="ai-conversation" aria-label="Research conversation">
           <div className="ai-toolbar">
+            <label className="ai-agent-mode">
+              <input
+                type="checkbox"
+                checked={agentEnabled}
+                disabled={busy || checking || !!approval}
+                onChange={(e) => {
+                  resetConversation();
+                  setAgentEnabled(e.target.checked);
+                }}
+              />
+              Research agent
+            </label>
+            {agentEnabled && (
+              <Button
+                disabled={busy || checking || !model || !connected}
+                onClick={() => void verifyTools()}
+              >
+                Verify tool compatibility
+              </Button>
+            )}
             <label>
               Provider
               <select
@@ -551,6 +852,122 @@ export default function AIStudio() {
             <div ref={end} />
           </div>
           <div className="ai-compose-area">
+            {agentEnabled && context && (
+              <div className="ai-research-controls">
+                <Button
+                  size="sm"
+                  disabled={busy || checking || !!approval}
+                  onClick={() => void inspectLatestRun()}
+                >
+                  Inspect latest run
+                </Button>
+                {recovery && (
+                  <Button
+                    size="sm"
+                    disabled={busy || !!approval}
+                    onClick={() => setApproval(recovery)}
+                  >
+                    Undo / redo last change
+                  </Button>
+                )}
+              </div>
+            )}
+            {changedProject && (
+              <div className="ai-changed-links">
+                <p>Confirmed saved project: {changedProject.id}</p>
+                {[null, ...changedEntities.slice(0, 12)].map((id) => (
+                  <Link
+                    key={id ?? 'network'}
+                    href={'/studio' + (id ? '?entity=' + encodeURIComponent(id) : '')}
+                    onClick={(event) => {
+                      const studio = useStudio.getState();
+                      if (studio.dirty) {
+                        event.preventDefault();
+                        setError(
+                          'Save the unsaved Network studio draft through Projects before opening the changed snapshot. Your draft is preserved.',
+                        );
+                        return;
+                      }
+                      const validated = projectSchema.parse(changedProject);
+                      studio.load(validated);
+                      if (id && validated.objects.some((o) => o.id === id)) studio.select([id]);
+                      localStorage.setItem('terralab.active.v1', JSON.stringify(validated));
+                    }}
+                  >
+                    {id ? 'Inspect entity ' + id : 'Open saved network'}
+                  </Link>
+                ))}
+              </div>
+            )}
+            {approval && (
+              <AIActionReview
+                action={approval}
+                busy={busy}
+                onReview={(decision) => void reviewAction(decision)}
+              />
+            )}
+            {runView && (
+              <a
+                className="ai-record-link"
+                href={
+                  '/ai?project=' +
+                  encodeURIComponent(projectId) +
+                  '&experiment=' +
+                  encodeURIComponent(runView.id)
+                }
+              >
+                Open this recorded run
+              </a>
+            )}
+            {runView && (
+              <section className="ai-run-result" aria-label="Actual experiment result">
+                <h2>Actual run · {runView.status}</h2>
+                <p className="mono">
+                  {runView.id} · {runView.completed}/{runView.planned} samples
+                </p>
+                {runView.error && <p>{runView.error}</p>}
+                <table>
+                  <caption>Recorded metrics · conditional on successful fixes</caption>
+                  <thead>
+                    <tr>
+                      <th>Estimator</th>
+                      <th>RMSE (m)</th>
+                      <th>Fixes / attempts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {runView.metrics.map((metric, i) => (
+                      <tr key={i}>
+                        <td>{metric.estimator}</td>
+                        <td>{metric.rmseM ?? 'Unavailable'}</td>
+                        <td>
+                          {metric.fixes}/{metric.attempted}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div>
+                  {['queued', 'running'].includes(runView.status) ? (
+                    <Button
+                      disabled={busy || !!approval}
+                      onClick={() => void requestCancellation()}
+                    >
+                      Cancel active run
+                    </Button>
+                  ) : (
+                    <>
+                      <Button size="sm" onClick={() => void downloadRun('json')}>
+                        Export actual JSON
+                      </Button>
+                      <Button size="sm" onClick={() => void downloadRun('csv')}>
+                        Export actual CSV
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </section>
+            )}
             {error && (
               <div className="ai-error" role="alert" aria-label="AI Studio error">
                 {error}
@@ -584,15 +1001,21 @@ export default function AIStudio() {
                 }}
               />
               {busy ? (
-                <Button type="button" onClick={() => abort.current?.abort()}>
+                <Button
+                  type="button"
+                  disabled={!abort.current}
+                  onClick={() => abort.current?.abort()}
+                >
                   <Square size={15} />
-                  Stop response
+                  {abort.current ? 'Stop response' : 'Applying reviewed action…'}
                 </Button>
               ) : (
                 <Button
                   type="submit"
                   variant="default"
-                  disabled={!draft.trim() || !context || !connected || !model || checking}
+                  disabled={
+                    !draft.trim() || !context || !connected || !model || checking || !!approval
+                  }
                 >
                   <ArrowUp size={16} />
                   Send

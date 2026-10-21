@@ -235,3 +235,4 @@ const ollama: TextProvider = {
   },
 };
 export const textProviders: Record<ProviderId, TextProvider> = { deepseek, ollama };
+export { call as providerCall, json as providerJson };

@@ -1,5 +1,7 @@
 # AI Studio security and limits
 
+This document records the Phase 1 credential/explanation boundary. Phase 2 retains that mechanism and adds reviewed simulator tools; the current capability, approval, audit and resource rules are in [TOOLS_AND_PERMISSIONS.md](TOOLS_AND_PERMISSIONS.md). The read-only/no-tool statements below describe explanation-only mode. No coding-agent shell/filesystem capability is added in either mode.
+
 ## Enforcement
 
 - All AI API routes verify same-origin requests. Mutations require an exact Origin/received-Host match; production requires an HTTPS origin. Same-origin browser GETs can use Fetch Metadata. Forwarded host/protocol headers do not select a trusted origin. There is no permissive CORS endpoint.

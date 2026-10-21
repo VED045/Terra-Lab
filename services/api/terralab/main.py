@@ -50,6 +50,7 @@ def solve(observations: MeasurementSet):
 
 from .lab_models import Request as ExperimentRequest
 from .experiments import start_job, read_job, cancel_job
+from .experiments import list_jobs
 from .signals import SignalRequest, run_signal
 from .reports import Report, pdf
 from fastapi.responses import Response
@@ -88,6 +89,15 @@ def get_experiment(identity: str, detail: bool = False, authorization: str | Non
     if cloud.mode()=='supabase': return cloud.read(identity,authorization,detail)
     try: return read_job(identity, detail)
     except (KeyError, ValueError) as exc: raise HTTPException(404, 'Experiment not found') from exc
+
+@app.get('/experiments')
+def list_experiments(project_id: str, authorization: str | None = Header(default=None)):
+    try: project_id=str(uuid.UUID(project_id))
+    except ValueError as exc: raise HTTPException(422, 'A project UUID is required') from exc
+    if cloud.mode()=='supabase':
+        rows=cloud.call('/rest/v1/research_jobs?project_id=eq.'+project_id+'&select=id,status,created_at,completed,planned&order=created_at.desc&limit=50',authorization)
+        return [dict(id=row['id'],projectId=project_id,status=row['status'],createdAt=row['created_at'],completed=row['completed'],planned=row['planned']) for row in rows]
+    return list_jobs(project_id)
 
 @app.delete('/experiments/{identity}')
 def stop_experiment(identity: str, authorization: str | None = Header(default=None)):

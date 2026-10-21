@@ -1,6 +1,8 @@
 # AI Studio provider setup
 
-AI Studio is `/ai`, linked from Network studio and the project library. It discusses **saved** project configuration. Save the current network before opening it, select the project, check the connection, then choose a returned model. It does not execute experiments or modify the network.
+Phase 2 adds the reviewed research-agent mode; the original streamed explanation-only mode remains available by unchecking **Research agent**. See [workflows](AGENT_WORKFLOWS.md), [tools and permissions](TOOLS_AND_PERMISSIONS.md), and [OpenCode Free / Harness setup](FREE_MODEL_AND_HARNESS_SETUP.md). OpenCode's listed free DeepSeek model rejected direct external API use; installing OpenCode does not configure TerraLab inference.
+
+AI Studio is `/ai`, linked from Network studio and the project library. It uses **saved** project configuration. Save the current network before opening it, select the project, check the connection, then choose a returned model. Research-agent changes and experiment submissions require an explicit preview and human approval; explanation-only mode has no executable domain tools.
 
 ## Signed-in DeepSeek users
 

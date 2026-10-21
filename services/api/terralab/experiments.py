@@ -180,3 +180,29 @@ def cancel_job(identity):
         job=JOBS[identity]
         if job['result']['status'] in ['running','queued']: job['cancel'].set()
         return read_job(identity)
+
+
+def list_jobs(project_id):
+    """Bounded local history metadata; configurations/results stay behind the existing detail API."""
+    project_id = str(uuid.UUID(project_id))
+    with LOCK:
+        sources = {identity: job['result'] for identity, job in JOBS.items()}
+        budget = 25_000_000
+        if DATA.exists():
+            for path in sorted(DATA.glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True)[:50]:
+                if path.stem in sources:
+                    continue
+                try:
+                    size = path.stat().st_size
+                    if size > budget:
+                        continue
+                    budget -= size
+                    value = json.loads(path.read_text(encoding='utf-8'))
+                    uuid.UUID(value['id'])
+                    sources[value['id']] = value
+                except (ValueError, KeyError, OSError):
+                    continue
+        selected = [dict(id=value['id'], projectId=project_id, status=value['status'],
+                         createdAt=value['createdAt'], completed=value['completed'], planned=value['planned'])
+                    for value in sources.values() if value.get('request', {}).get('project', {}).get('id') == project_id]
+        return sorted(selected, key=lambda value: value['createdAt'], reverse=True)[:50]

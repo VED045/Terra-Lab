@@ -8,6 +8,18 @@ export default defineConfig({
   use: { baseURL: 'http://127.0.0.1:13042', headless: true, trace: 'retain-on-failure' },
   webServer: [
     {
+      command: 'node scripts/python.mjs scripts/ai-scientific-fixture.py',
+      url: 'http://127.0.0.1:18042/health',
+      reuseExistingServer: false,
+      timeout: 30000,
+      env: {
+        TERRALAB_ENV: 'development',
+        TERRALAB_JOB_MODE: 'local',
+        TERRALAB_DATA_DIR: '.terralab/ai-e2e',
+        TERRALAB_AI_TEST_FIXTURE: '1',
+      },
+    },
+    {
       command: 'node scripts/ai-provider-fixture.mjs',
       url: 'http://127.0.0.1:11444/health',
       reuseExistingServer: false,
@@ -23,6 +35,7 @@ export default defineConfig({
         TERRALAB_AI_OLLAMA_ENABLED: '1',
         TERRALAB_AI_OLLAMA_URL: 'http://127.0.0.1:11444',
         TERRALAB_AI_DEV_DEEPSEEK_KEY: '',
+        SIMULATION_API_URL: 'http://127.0.0.1:18042',
         NEXT_PUBLIC_SUPABASE_URL: '',
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: '',
         NEXT_PUBLIC_SUPABASE_ANON_KEY: '',

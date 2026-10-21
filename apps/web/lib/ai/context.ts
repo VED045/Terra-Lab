@@ -40,7 +40,11 @@ function summarizeExperiment(value: unknown) {
     seed: c.seed,
   };
 }
-export async function readContext(identity: AIIdentity, input: z.infer<typeof contextInputSchema>) {
+export async function readContext(
+  identity: AIIdentity,
+  input: z.infer<typeof contextInputSchema>,
+  request?: Request,
+) {
   let project: unknown;
   if (identity.local) {
     project = projectSchema.parse(input.localProject);
@@ -64,11 +68,24 @@ export async function readContext(identity: AIIdentity, input: z.infer<typeof co
   const summary = summarizeProject(project, identity.local ? 'local-development' : 'cloud-saved');
   let run: { status: string; experiment: ReturnType<typeof summarizeExperiment> } | null = null;
   if (input.experimentId) {
-    if (identity.local)
-      throw new AIError(
-        'experiment_unavailable',
-        'Local AI context includes the saved experiment configuration, not a cloud run.',
+    if (identity.local) {
+      if (!request)
+        throw new AIError(
+          'experiment_unavailable',
+          'A local runtime request is required to inspect a real run.',
+        );
+      const { authorizedRun } = await import('./scientific');
+      const result = await authorizedRun(
+        request,
+        identity,
+        projectSchema.parse(project),
+        input.experimentId,
       );
+      return {
+        ...summary,
+        run: { status: result.status, experiment: summarizeExperiment(result.request.config) },
+      };
+    }
     const result = await identity
       .db!.from('research_jobs')
       .select('status,request')

@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   try {
     const identity = await guard(request);
     return Response.json(
-      await readContext(identity, contextInputSchema.parse(await body(request))),
+      await readContext(identity, contextInputSchema.parse(await body(request)), request),
       { headers: privateHeaders },
     );
   } catch (error) {

@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     const input = chatSchema.parse(await body(request));
     if (input.messages.at(-1)?.role !== 'user')
       throw new AIError('invalid_request', 'Send a user message to start a response.');
-    const context = await readContext(identity, input.context); // Fresh authorization on every turn.
+    const context = await readContext(identity, input.context, request); // Fresh authorization on every turn.
     const key = providerKey(request, identity, input.provider);
     const provider = textProviders[input.provider];
     const connection = { key, signal };
