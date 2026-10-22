@@ -32,6 +32,7 @@ export default defineConfig({
         TERRALAB_AI_TESTING_ENABLED: '1',
         TERRALAB_AI_OLLAMA_ENABLED: '1',
         TERRALAB_AI_FREE_LOCAL_ONLY: '1',
+        TERRALAB_BROWSER_TEST: '1',
         TERRALAB_AI_OLLAMA_URL: process.env.TERRALAB_AI_LIVE_OLLAMA_URL || 'http://127.0.0.1:11435',
         TERRALAB_AI_OLLAMA_MODEL: process.env.TERRALAB_AI_LIVE_MODEL || 'deepseek-r1:8b',
         TERRALAB_AI_DEV_DEEPSEEK_KEY: '',

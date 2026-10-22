@@ -146,11 +146,20 @@ test('three-account requests, invitations, scope, revocation, privacy and respon
   for (const session of [owner, viewer, editor, outsider])
     session.page.on('pageerror', (e) => errors.push(e.message));
   try {
+    // A studio assignment and private saves alone are not shared activity.
+    await expect(owner.page.getByLabel('Shared-project activity').locator('li')).toHaveCount(0);
+    await expect(
+      owner.page.getByText('No shared-project activity yet.', { exact: false }),
+    ).toBeVisible();
     expect(
       await owner.page
         .locator('.collab-page')
         .evaluate((e) => getComputedStyle(e).getPropertyValue('--bg').trim()),
     ).not.toBe('');
+    await owner.page.screenshot({
+      path: 'test-results/collaboration-no-peers.png',
+      fullPage: true,
+    });
     await request(viewer.page);
     await section(viewer.page, 'Requests & Invitations');
     await viewer.page.getByRole('button', { name: 'Sent requests', exact: true }).click();

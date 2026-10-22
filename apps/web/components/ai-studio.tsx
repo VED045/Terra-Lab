@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Check, Circle, Network, Settings2, Square, RotateCcw } from 'lucide-react';
 import type { Project } from '@terralab/shared';
@@ -12,8 +13,10 @@ import { freshCopy } from '@/lib/research';
 import type { AgentEvent, ApprovalView } from '@/lib/ai/agent-contracts';
 import { AIActionReview } from './ai-action-review';
 import { AIResearchTasks } from './ai-research-tasks';
+import { AIProjectCanvas } from './ai-project-canvas';
 import type { ActionOutcome } from '@/lib/ai/task-history';
 import { useStudio } from '@/lib/store';
+import { useLabView } from '@/lib/lab-view';
 import { providers, type Message, type ProviderId, type StreamEvent } from '@/lib/ai/contracts';
 import { NetworkLogo } from './network-logo';
 import { Button } from './ui/button';
@@ -46,9 +49,30 @@ const starters = [
 ];
 
 export default function AIStudio() {
+  const router = useRouter();
   const theme = useStudio((s) => s.project.canvas.theme);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
+  async function editSelectedCanvas() {
+    try {
+      if (
+        useStudio.getState().dirty &&
+        !confirm('Open the saved selected project and discard unsaved Network studio changes?')
+      )
+        return;
+      const selected = (await listProjects()).find((p) => p.id === projectId);
+      if (!selected)
+        throw Error(
+          'This project is no longer available. Refresh the project list before opening it.',
+        );
+      useStudio.getState().load(selected);
+      useLabView.getState().clear();
+      localStorage.setItem('terralab.active.v1', JSON.stringify(selected));
+      router.push('/studio?project=' + encodeURIComponent(selected.id));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
   const [experimentId, setExperimentId] = useState('');
   const [context, setContext] = useState<Context | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -638,7 +662,15 @@ export default function AIStudio() {
         </div>
         <nav aria-label="AI Studio navigation">
           <Link href="/projects">Projects</Link>
-          <Link href="/studio">
+          <Link
+            href={projectId ? '/studio?project=' + encodeURIComponent(projectId) : '/studio'}
+            onClick={(e) => {
+              if (projectId) {
+                e.preventDefault();
+                void editSelectedCanvas();
+              }
+            }}
+          >
             <Network size={16} />
             Network studio
           </Link>
@@ -907,6 +939,13 @@ export default function AIStudio() {
                 Setup: docs/ai/PROVIDER_SETUP.md
               </p>
             </section>
+          )}
+          {projects.find((p) => p.id === projectId) && (
+            <AIProjectCanvas
+              key={projectId}
+              project={projects.find((p) => p.id === projectId)!}
+              onEdit={() => void editSelectedCanvas()}
+            />
           )}
           <div
             className="ai-transcript"

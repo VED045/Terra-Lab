@@ -117,6 +117,46 @@ export function sharedResources(
 export function stamp(value: string) {
   return new Date(value).toLocaleString();
 }
+export function sharedActivity(state: CollaborationState) {
+  // An owned project is shared only when another person currently has access.
+  // Team assignment, self-membership and pending invitation links alone do not count.
+  const projects = new Map(
+    state.resources
+      .filter(
+        (r) =>
+          r.scope === 'project' &&
+          (r.owner_id !== state.user_id ||
+            state.members.some((m) => m.resource_id === r.id && m.user_id !== state.user_id)),
+      )
+      .map((r) => [r.id, r]),
+  );
+  const groups = new Map<
+    string,
+    { id: string; project: Resource; event: string; createdAt: string; count: number }
+  >();
+  for (const activity of state.activity) {
+    const project = projects.get(activity.project_id),
+      at = new Date(activity.created_at);
+    if (!project || !Number.isFinite(at.getTime())) continue;
+    const day = [at.getFullYear(), at.getMonth(), at.getDate()].join('-');
+    const key =
+      activity.event === 'revision_saved' ? `${project.id}:${activity.event}:${day}` : activity.id;
+    const group = groups.get(key);
+    if (group) {
+      group.count++;
+      if (Date.parse(activity.created_at) > Date.parse(group.createdAt))
+        group.createdAt = activity.created_at;
+    } else
+      groups.set(key, {
+        id: key,
+        project,
+        event: activity.event,
+        createdAt: activity.created_at,
+        count: 1,
+      });
+  }
+  return [...groups.values()].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+}
 export function eventText(value: string) {
   return value.replaceAll('_', ' ');
 }

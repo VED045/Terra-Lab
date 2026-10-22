@@ -35,6 +35,7 @@ export default defineConfig({
         TERRALAB_AI_TESTING_ENABLED: '1',
         TERRALAB_AI_OLLAMA_ENABLED: '1',
         TERRALAB_AI_OLLAMA_URL: 'http://127.0.0.1:11444',
+        TERRALAB_BROWSER_TEST: '1',
         TERRALAB_AI_DEV_DEEPSEEK_KEY: '',
         SIMULATION_API_URL: 'http://127.0.0.1:18042',
         NEXT_PUBLIC_SUPABASE_URL: '',

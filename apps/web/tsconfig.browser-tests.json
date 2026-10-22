@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next-tests/types/**/*.ts",
+    ".next-tests/dev/types/**/*.ts"
+  ],
+  "exclude": ["node_modules", ".next", ".next-local-ai"]
+}

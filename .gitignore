@@ -1,5 +1,7 @@
 node_modules/
 .next/
+.next-local-ai/
+.next-tests/
 .venv/
 __pycache__/
 .pytest_cache/

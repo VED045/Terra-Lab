@@ -50,12 +50,19 @@ const tools: { mode: ToolMode; label: string; icon: typeof Radio }[] = [
 export default function NetworkCanvas({
   verifiedSolution,
   fitOnLoad = false,
+  canvasStore,
+  readOnly = false,
 }: {
   verifiedSolution?: Solution | null;
   fitOnLoad?: boolean;
+  canvasStore?: typeof useStudio;
+  readOnly?: boolean;
 }) {
-  const { project, selected, tool, time, playing, edit, select, setTool, add, log } = useStudio();
-  const laboratory = useLabView((s) => s.result);
+  const useCanvasStore = canvasStore ?? useStudio;
+  const { project, selected, tool, time, playing, edit, select, setTool, add, log } =
+    useCanvasStore();
+  const savedLaboratory = useLabView((s) => s.result);
+  const laboratory = readOnly ? null : savedLaboratory;
   const host = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ width: 900, height: 620 });
@@ -207,7 +214,7 @@ export default function NetworkCanvas({
     setMenu(null);
     const point = local(e),
       w = world(point);
-    const s = useStudio.getState();
+    const s = useCanvasStore.getState();
     if (e.button === 1 || tool === 'pan') {
       e.preventDefault();
       drag.current = {
@@ -227,6 +234,7 @@ export default function NetworkCanvas({
           ? selected
           : [id];
       select(ids);
+      if (readOnly) return;
       drag.current = {
         start: point,
         pan: { ...view.pan },
@@ -332,7 +340,12 @@ export default function NetworkCanvas({
       <div className="object-toolbar" role="toolbar" aria-label="Network tools">
         {tools.map(({ mode, label, icon: Icon }, i) => (
           <span key={mode} className={i === 2 || i === 7 ? 'tool-separator' : ''}>
-            <Tool label={label} active={tool === mode} onClick={() => setTool(mode)}>
+            <Tool
+              label={label}
+              active={tool === mode}
+              disabled={readOnly && !['select', 'pan', 'measure'].includes(mode)}
+              onClick={() => setTool(mode)}
+            >
               <Icon size={18} />
             </Tool>
           </span>
@@ -713,7 +726,7 @@ export default function NetworkCanvas({
             stroke="var(--cyan)"
           />
         )}
-        <LaboratoryOverlay project={project} view={view} />
+        {!readOnly && <LaboratoryOverlay project={project} view={view} />}
       </svg>
       {draft.length > 0 && (
         <div className="draft-hint">
@@ -819,9 +832,11 @@ export default function NetworkCanvas({
       <div className="canvas-bottom">
         <span>
           <ScanLine size={12} />
-          {activeTools?.mode === 'select'
-            ? 'Drag to move · Shift to multi-select'
-            : activeTools?.label}
+          {readOnly
+            ? 'Preview · use Edit canvas to change this saved network'
+            : activeTools?.mode === 'select'
+              ? 'Drag to move · Shift to multi-select'
+              : activeTools?.label}
         </span>
         <span className="mono">
           X {cursor.x.toFixed(1)} <span className="muted">m</span> &nbsp; Y {cursor.y.toFixed(1)}{' '}
@@ -841,10 +856,10 @@ export default function NetworkCanvas({
         >
           <button
             onClick={() => {
-              useStudio.getState().duplicate();
+              useCanvasStore.getState().duplicate();
               setMenu(null);
             }}
-            disabled={!selected.length}
+            disabled={readOnly || !selected.length}
           >
             <Copy size={14} />
             Duplicate selection
@@ -852,15 +867,16 @@ export default function NetworkCanvas({
           <button
             className="destructive-action"
             onClick={() => {
-              useStudio.getState().remove();
+              useCanvasStore.getState().remove();
               setMenu(null);
             }}
-            disabled={!selected.length}
+            disabled={readOnly || !selected.length}
           >
             <Trash2 size={14} />
             Delete selection
           </button>
           <button
+            disabled={readOnly}
             onClick={() => {
               add('anchor', world(menu));
               setMenu(null);

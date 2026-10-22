@@ -16,6 +16,7 @@ import {
   sections,
   roleHelp,
   sharedResources,
+  sharedActivity,
   stamp,
   eventText,
   invitationToken,
@@ -180,6 +181,7 @@ function Center() {
   const owned = data?.resources.filter((r) => r.role === 'owner') || [],
     teams = owned.filter((r) => r.scope !== 'project'),
     selected = owned.find((r) => r.id === selectedId);
+  const activity = data ? sharedActivity(data) : [];
   const incomingRequests =
       data?.requests.filter((r) => r.recipient_id === uid && r.status === 'pending') || [],
     incomingInvites =
@@ -563,18 +565,42 @@ function Center() {
                       <p className="collab-empty">No notifications yet.</p>
                     )}
                     <h3>Recent shared-project activity</h3>
-                    {data.activity.map((a) => (
-                      <div className="collab-row collab-item" key={a.id}>
-                        <span>
-                          {eventText(a.event)}
-                          <small>
-                            {data.resources.find((r) => r.id === a.project_id)?.name} ·{' '}
-                            {stamp(a.created_at)}
-                          </small>
-                        </span>
-                      </div>
-                    ))}
-                    {!data.activity.length && <p>No recorded activity is available.</p>}
+                    <p className="collab-activity-note">
+                      Projects with current collaborators only. Recent saves are grouped by project
+                      and day.
+                    </p>
+                    <ul className="collab-activity" aria-label="Shared-project activity">
+                      {activity.map((a) => (
+                        <li key={a.id}>
+                          <div>
+                            <strong>{a.project.name}</strong>
+                            <span>
+                              {a.event === 'revision_saved'
+                                ? a.count === 1
+                                  ? 'Revision saved'
+                                  : `${a.count} revisions saved`
+                                : eventText(a.event)}
+                            </span>
+                          </div>
+                          <time dateTime={a.createdAt} title={stamp(a.createdAt)}>
+                            {stamp(a.createdAt)}
+                          </time>
+                          <Button
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => void openResource(a.project)}
+                          >
+                            Open project
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                    {!activity.length && (
+                      <p className="collab-empty">
+                        No shared-project activity yet. Private saves stay in each project’s
+                        history. Activity will appear here after another person has access.
+                      </p>
+                    )}
                   </>
                 )}
                 {section === 'People' && (

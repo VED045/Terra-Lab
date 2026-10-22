@@ -162,6 +162,72 @@
   overflow-y: auto;
   padding: 34px clamp(20px, 5vw, 84px);
 }
+.ai-project-canvas {
+  margin: 12px 24px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.ai-canvas-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+}
+.ai-canvas-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.ai-canvas-name {
+  margin-left: auto;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 55%;
+}
+.ai-canvas-stage {
+  height: 420px;
+}
+.ai-canvas-stage .canvas-wrap {
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+}
+.ai-project-canvas p {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+  padding: 8px 12px;
+  margin: 0;
+}
+.ai-canvas-toggle:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: -3px;
+}
+@media (max-width: 560px) {
+  .ai-project-canvas {
+    margin: 12px 14px 0;
+  }
+  .ai-canvas-stage {
+    height: 380px;
+  }
+  .ai-canvas-name {
+    max-width: 40%;
+  }
+}
 .ai-empty {
   max-width: 640px;
   margin: clamp(10px, 8vh, 100px) auto 40px;

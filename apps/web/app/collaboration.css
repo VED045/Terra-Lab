@@ -345,3 +345,47 @@
   outline: 2px solid var(--cyan);
   outline-offset: 3px;
 }
+.collab-activity {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0;
+  display: grid;
+  gap: 8px;
+}
+.collab-activity li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.collab-activity li > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+.collab-activity strong {
+  overflow-wrap: anywhere;
+}
+.collab-activity span,
+.collab-activity time,
+.collab-activity-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+@media (max-width: 560px) {
+  .collab-activity li {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .collab-activity li > div {
+    flex-basis: 100%;
+  }
+  .collab-activity time {
+    flex: 1;
+  }
+}

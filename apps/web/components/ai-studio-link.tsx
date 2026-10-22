@@ -3,7 +3,13 @@ import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { useStudio } from '@/lib/store';
 
-export function AIStudioLink({ compact = false }: { compact?: boolean }) {
+export function AIStudioLink({
+  compact = false,
+  onOpen,
+}: {
+  compact?: boolean;
+  onOpen?: () => void;
+}) {
   const id = useStudio((s) => s.project.id);
   return (
     <Link
@@ -11,7 +17,12 @@ export function AIStudioLink({ compact = false }: { compact?: boolean }) {
       href={'/ai?project=' + encodeURIComponent(id)}
       aria-label="AI Studio"
       title="AI Studio · saved project context"
-      onClick={() => {
+      onClick={(event) => {
+        if (onOpen) {
+          event.preventDefault();
+          onOpen();
+          return;
+        }
         localStorage.setItem('terralab.active.v1', JSON.stringify(useStudio.getState().project));
       }}
     >

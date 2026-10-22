@@ -2,6 +2,8 @@
 
 ## Phase 3: installed free local laptop profile
 
+For the complete click-by-click flow, project import between ports, the shared canvas and edit/AI navigation, see [LOCAL_OLLAMA_GUIDE.md](LOCAL_OLLAMA_GUIDE.md). The local profile now uses `.next-local-ai` and its own TypeScript configuration, so a regular `npm run dev` server on port 3000 can remain running. Browser acceptance uses a separate `.next-tests` output directory as well.
+
 The 22 October 2026 laptop setup uses Ollama 0.40.7 and downloaded `deepseek-r1:8b` Q4_K_M weights (about 5.2 GB), plus `qwen3:4b-instruct-2507-q4_K_M` (about 2.5 GB) for native research tool calls. DeepSeek produced a real browser explanation, but its formal tool compatibility request timed out after 180 seconds on this laptop. It remains available in explanation mode; Qwen Instruct is a separate, visible model choice, never a silent fallback. The generic `qwen3:4b` thinking tag exhausted the chat token budget during validation; use the explicit Instruct tag shown here. No Ollama API key is required or used. The existing signed-in Ollama desktop app remains separate. TerraLab's own loopback process has `OLLAMA_NO_CLOUD=1`; its Next server has `TERRALAB_AI_FREE_LOCAL_ONLY=1`, and model metadata with `remote_model` / `remote_host` or cloud tags is rejected. These controls prevent silently routing through a paid cloud model.
 
 From the repository:

@@ -141,7 +141,7 @@ const services = {
       '13040',
     ],
     health: 'http://127.0.0.1:13040/ai',
-    env: { ...common, NODE_ENV: 'development' },
+    env: { ...common, NODE_ENV: 'development', TERRALAB_LOCAL_AI_PROFILE: '1' },
   },
 };
 async function reachable(url) {
@@ -161,6 +161,15 @@ for (const [name, service] of Object.entries(services)) {
       }),
     );
     continue;
+  }
+  // Upgrade only our own earlier web profile; never terminate the regular port-3000 server.
+  if (name === 'web' && owned(state.web) && state.web.profile !== 'isolated-ai-v1') {
+    execFileSync('taskkill.exe', ['/PID', String(state.web.pid), '/T', '/F'], {
+      windowsHide: true,
+      stdio: 'ignore',
+    });
+    delete state.web;
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
   }
   if (await reachable(service.health)) {
     if (!owned(state[name])) {
@@ -187,6 +196,11 @@ for (const [name, service] of Object.entries(services)) {
     console.log(`${name}: existing verified local profile`);
     continue;
   }
+  if (owned(state[name])) {
+    throw Error(
+      `${name} is already starting or unhealthy. Inspect .terralab/local-ai/${name}.err.log; no duplicate process was started. Use --stop before a clean restart.`,
+    );
+  }
   if (!existsSync(service.exe))
     throw Error(
       `Missing installed ${name} runtime. No package/model download is performed by this launcher.`,
@@ -200,6 +214,12 @@ for (const [name, service] of Object.entries(services)) {
     windowsHide: true,
     stdio: ['ignore', out, err],
   });
+  let exited = false,
+    exitStatus = null;
+  child.once('exit', (code) => {
+    exited = true;
+    exitStatus = code;
+  });
   await new Promise((res, rej) => {
     child.once('spawn', res);
     child.once('error', rej);
@@ -211,10 +231,23 @@ for (const [name, service] of Object.entries(services)) {
   const actual = info(child.pid);
   if (!actual)
     throw Error(`${name} exited before startup. Inspect its local log; no success is assumed.`);
-  state[name] = { pid: child.pid, commandLine: actual.CommandLine, createdAt: actual.CreationDate };
+  state[name] = {
+    pid: child.pid,
+    commandLine: actual.CommandLine,
+    createdAt: actual.CreationDate,
+    ...(name === 'web' ? { profile: 'isolated-ai-v1' } : {}),
+  };
   writeFileSync(statePath, JSON.stringify(state, null, 2));
   let ready = false;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 90; i++) {
+    if (exited) {
+      delete state[name];
+      writeFileSync(statePath, JSON.stringify(state, null, 2));
+      const tail = readFileSync(join(data, name + '.err.log'), 'utf8').slice(-1800);
+      throw Error(
+        `${name} exited before becoming healthy (exit ${exitStatus ?? 'unavailable'}).\n${tail}\nSee .terralab/local-ai/${name}.err.log.`,
+      );
+    }
     if (await reachable(service.health)) {
       ready = true;
       break;

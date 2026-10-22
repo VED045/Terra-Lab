@@ -489,6 +489,28 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
     localStorage.setItem('terralab.active.v1', JSON.stringify(useStudio.getState().project));
     router.push('/studio');
   }
+  async function openAIStudio() {
+    if (conflictBlocked) {
+      setConflictOpen(true);
+      return;
+    }
+    const original = useStudio.getState().project;
+    try {
+      if (useStudio.getState().dirty || !original.cloudVersion) await saveAsync(original);
+      const latest = useStudio.getState();
+      if (latest.project.id !== original.id) return;
+      if (latest.dirty) {
+        setNotice(
+          'The project changed during saving. Save the current changes before opening AI Studio.',
+        );
+        return;
+      }
+      localStorage.setItem('terralab.active.v1', JSON.stringify(latest.project));
+      router.push('/ai?project=' + encodeURIComponent(latest.project.id));
+    } catch {
+      /* Existing save mutation reports the error and preserves the draft. */
+    }
+  }
   function runDemo() {
     if (!demoMode)
       localStorage.setItem('terralab.active.v1', JSON.stringify(useStudio.getState().project));
@@ -550,7 +572,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
         </button>
         <div className="rail-top">
           <CollaborationLink compact />
-          <AIStudioLink compact />
+          <AIStudioLink compact onOpen={() => void openAIStudio()} />
           <Tool label="Network studio" active onClick={() => setProjectsOpen(false)}>
             <Network size={21} />
           </Tool>
@@ -693,6 +715,9 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
           )}
         </span>
         <div className="command-actions">
+          <Button size="sm" disabled={save.isPending} onClick={() => void openAIStudio()}>
+            AI Studio
+          </Button>
           <Button
             size="sm"
             aria-label="Multiband signal laboratory"

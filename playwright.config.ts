@@ -31,6 +31,7 @@ export default defineConfig({
       timeout: 120000,
       env: {
         SIMULATION_API_URL: 'http://127.0.0.1:' + apiPort,
+        TERRALAB_BROWSER_TEST: '1',
         TERRALAB_AI_LOCAL_DEV: '0',
         TERRALAB_AI_OLLAMA_ENABLED: '0',
         NEXT_PUBLIC_SUPABASE_URL: authFixture ? 'https://fixture.supabase.invalid' : '',
