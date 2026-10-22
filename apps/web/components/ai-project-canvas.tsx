@@ -10,8 +10,10 @@ export function AIProjectCanvas({
   project,
   onEdit,
   onView,
+  theme,
 }: {
   project: Project;
+  theme?: Project['canvas']['theme'];
   onEdit: () => void;
   onView?: (view: CanvasView) => void;
 }) {
@@ -29,11 +31,11 @@ export function AIProjectCanvas({
     store.setState((state) => ({
       project: {
         ...structuredClone(project),
-        canvas: { ...state.project.canvas, theme: project.canvas.theme },
+        canvas: { ...state.project.canvas, theme: theme ?? project.canvas.theme },
       },
       selected: state.selected.filter((id) => project.objects.some((o) => o.id === id)),
     }));
-  }, [project, store]);
+  }, [project, store, theme]);
   useEffect(() => {
     const send = () => {
       const s = store.getState();
@@ -51,7 +53,7 @@ export function AIProjectCanvas({
   }
   return (
     <section
-      className={`ai-project-canvas theme-${project.canvas.theme}`}
+      className={`ai-project-canvas theme-${theme ?? project.canvas.theme}`}
       data-layout={mode}
       aria-label="Selected project canvas"
     >

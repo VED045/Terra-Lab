@@ -20,6 +20,18 @@ test('layout preference, draft preservation, local onboarding and dark reduced-m
   await page.getByLabel('Canvas layout').selectOption('compact');
   await expect(canvas.locator('.network-node')).not.toHaveCount(0);
   await expect(canvas.locator('.zoom-value')).toHaveText(zoom!);
+  await expect
+    .poll(() =>
+      canvas
+        .locator('.ai-canvas-stage')
+        .evaluate((el) =>
+          Math.abs(
+            el.getBoundingClientRect().height -
+              el.querySelector('.canvas-wrap')!.getBoundingClientRect().height,
+          ),
+        ),
+    )
+    .toBeLessThan(1);
   await expect(page.getByRole('textbox', { name: 'Message TerraLab AI' })).toHaveValue(
     'Keep this research question',
   );

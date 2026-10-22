@@ -246,7 +246,7 @@ try {
   );
   passed('256-file quota includes unpublished uploads and is enforced on direct Storage inserts');
   console.log(
-    `Research workspace: ${checks} real PostgreSQL/RLS groups passed. Auth and Storage tables are local fixtures; hosted migration is not applied.`,
+    `Research workspace: ${checks} real PostgreSQL/RLS groups passed. Auth and Storage tables are local fixtures; this test does not access a hosted database.`,
   );
 } finally {
   await f.close();

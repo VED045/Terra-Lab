@@ -436,9 +436,9 @@ Select two to four saved experiments to compare full-data metrics, configuration
 
 ## AI Studio and Research Workspace
 
-AI Studio now has guided connection diagnostics, a compact activity flow, context inclusion controls and expanded/compact/hidden canvas layouts. Research Workspace at /research provides private sources, faithful LaTeX editing with math preview, checked revisions/conflict recovery, explicit document sharing and traceable evidence from actual runs and renderer captures. Proposed AI writing requires review before insertion. See [the enhancement report](docs/research/RESEARCH_WORKSPACE_REPORT.md) and [local connectivity](docs/ai/LOCAL_MODEL_CONNECTIVITY.md).
+AI Studio now has guided connection diagnostics, a compact activity flow, context inclusion controls and expanded/compact/hidden canvas layouts. TerraLab Manuscript at /research provides private sources, faithful LaTeX editing with math preview, checked revisions/conflict recovery, explicit document sharing and traceable evidence from actual runs and renderer captures. Proposed AI writing requires review before insertion. See [the enhancement report](docs/research/RESEARCH_WORKSPACE_REPORT.md) and [local connectivity](docs/ai/LOCAL_MODEL_CONNECTIVITY.md).
 
-Local Research Workspace works in the browser immediately. Cloud research requires the new additive migration, which has **not** been applied to the hosted database. Collaboration uses versioned saves and refresh, and full paper PDF compilation is external. Node 22.13+ is required (tested 24.19.0).
+Local Research Workspace works in the browser immediately. The research migration is now applied on Terra-Lab; new environments still require the additive migration. See [the workbench follow-up](docs/ai/WORKBENCH_FOLLOWUP.md). Collaboration uses versioned saves and refresh, and full paper PDF compilation is external. Node 22.13+ is required (tested 24.19.0).
 
 ### Existing canvas and local startup
 

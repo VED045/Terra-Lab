@@ -2,7 +2,18 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowUp, Check, Circle, Network, Settings2, Square, RotateCcw } from 'lucide-react';
+import {
+  ArrowUp,
+  Check,
+  Circle,
+  Network,
+  Settings2,
+  Square,
+  RotateCcw,
+  X,
+  Sparkles,
+  Workflow,
+} from 'lucide-react';
 import type { Project } from '@terralab/shared';
 import { listProjects, supabase, localSave, localList } from '@/lib/persistence';
 import { projectContent } from '@/lib/project-content';
@@ -13,6 +24,7 @@ import { freshCopy } from '@/lib/research';
 import type { AgentEvent, ApprovalView } from '@/lib/ai/agent-contracts';
 import { AIActionReview } from './ai-action-review';
 import { AIResearchTasks } from './ai-research-tasks';
+import { AIResponse } from './ai-response';
 import { AIAgentActivity } from './ai-agent-activity';
 import {
   connectionFailure,
@@ -158,7 +170,30 @@ export default function AIStudio() {
   const revision = useRef(0);
   const contextRevision = useRef(0);
   const lastQuestion = useRef('');
-  const end = useRef<HTMLDivElement>(null);
+  const transcript = useRef<HTMLDivElement>(null);
+  const followResponse = useRef(true);
+  const [showStarters, setShowStarters] = useState(true);
+  const [showWorkflows, setShowWorkflows] = useState(true);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('terralab.ai.panels.v1') || 'null');
+      if (typeof saved?.starters === 'boolean') setShowStarters(saved.starters);
+      if (typeof saved?.workflows === 'boolean') setShowWorkflows(saved.workflows);
+    } catch {}
+  }, []);
+  function panel(name: 'starters' | 'workflows', open: boolean) {
+    if (name === 'starters') setShowStarters(open);
+    else setShowWorkflows(open);
+    try {
+      localStorage.setItem(
+        'terralab.ai.panels.v1',
+        JSON.stringify({
+          starters: name === 'starters' ? open : showStarters,
+          workflows: name === 'workflows' ? open : showWorkflows,
+        }),
+      );
+    } catch {}
+  }
 
   async function api(path: string, init?: RequestInit) {
     const db = supabase();
@@ -359,8 +394,16 @@ export default function AIStudio() {
     };
   }, [trackedRun, projectId, projects]);
   useEffect(() => {
-    end.current?.scrollIntoView({ block: 'nearest' });
-  }, [messages]);
+    const el = transcript.current;
+    if (!el) return;
+    const follow = () => {
+      if (followResponse.current) el.scrollTop = el.scrollHeight;
+    };
+    follow();
+    const observer = new ResizeObserver(follow);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => observer.disconnect();
+  }, [messages, busy, toolEvents]);
   useEffect(() => {
     let active = true;
     setResearchSelection({ document: null, assets: [] });
@@ -638,6 +681,7 @@ export default function AIStudio() {
       ...history,
       { role: 'user' as const, content: question.trim() },
     ].slice(-19);
+    followResponse.current = true;
     setMessages([...outgoing, { role: 'assistant', content: '' }]);
     setDraft('');
     setError('');
@@ -943,7 +987,7 @@ export default function AIStudio() {
           hidden={!contextOpen}
         >
           <h2>Research context</h2>
-          <Link href={'/research?project=' + projectId}>Open Research Workspace</Link>
+          <Link href={'/research?project=' + projectId}>Open Manuscript</Link>
           {(researchSelection.document || researchSelection.assets.length > 0) && (
             <details open>
               <summary>Selected research sources</summary>
@@ -1095,6 +1139,85 @@ export default function AIStudio() {
               ))}
             </ol>
           </details>
+          <div className="ai-sidebar-panels">
+            {(!showStarters || !showWorkflows) && (
+              <div className="ai-panel-restore">
+                {!showStarters && (
+                  <button onClick={() => panel('starters', true)}>Show starter prompts</button>
+                )}
+                {!showWorkflows && (
+                  <button onClick={() => panel('workflows', true)}>Show research workflows</button>
+                )}
+              </div>
+            )}
+            <section
+              className="ai-sidebar-card"
+              hidden={!showStarters}
+              aria-label="Starter prompts"
+            >
+              <header>
+                <Sparkles size={15} />
+                <h3>Understand your next experiment</h3>
+                <button aria-label="Hide starter prompts" onClick={() => panel('starters', false)}>
+                  <X size={14} />
+                </button>
+              </header>
+              <p>Inspect the network, question assumptions, plan a comparison.</p>
+              <div className="ai-starters">
+                {starters.map((prompt) => (
+                  <button key={prompt} onClick={() => setDraft(prompt)}>
+                    {prompt}
+                    <ArrowUp size={13} />
+                  </button>
+                ))}
+              </div>
+            </section>
+            <section
+              className="ai-sidebar-card"
+              hidden={!showWorkflows}
+              aria-label="Research workflow panel"
+            >
+              <header>
+                <Workflow size={15} />
+                <h3>Research workflow</h3>
+                <button
+                  aria-label="Hide research workflows"
+                  onClick={() => panel('workflows', false)}
+                >
+                  <X size={14} />
+                </button>
+              </header>
+              {settings &&
+                (settings.actorId || settings.mode === 'local-development') &&
+                projects.some((p) => p.id === projectId) && (
+                  <AIResearchTasks
+                    key={
+                      (settings.actorId ||
+                        (settings.mode === 'local-development' ? 'local-development' : '')) +
+                      ':' +
+                      projectId
+                    }
+                    actor={
+                      settings.actorId ||
+                      (settings.mode === 'local-development' ? 'local-development' : '')
+                    }
+                    project={projects.find((p) => p.id === projectId)!}
+                    api={api}
+                    contextInput={contextInput}
+                    approval={approval}
+                    onApproval={setApproval}
+                    outcome={taskOutcome}
+                    runView={runView}
+                    trackedRun={trackedRun}
+                    onTrackRun={setTrackedRun}
+                    testId={trackedTest}
+                    onTrackTest={setTrackedTest}
+                    testingEnabled={settings.testingEnabled === true}
+                    onDraft={setDraft}
+                  />
+                )}
+            </section>
+          </div>
         </aside>
         <section className="ai-conversation" aria-label="Research conversation">
           <div className="ai-toolbar">
@@ -1315,93 +1438,70 @@ export default function AIStudio() {
             <AIProjectCanvas
               key={projectId}
               project={projects.find((p) => p.id === projectId)!}
+              theme={theme}
               onView={updateCanvasView}
               onEdit={() => void editSelectedCanvas()}
             />
           )}
+          <div className="ai-chat-heading">
+            <span>
+              <Sparkles size={15} /> Research conversation
+            </span>
+            <span>{busy ? 'Responding' : connected ? 'Ready' : 'Connect a model to begin'}</span>
+          </div>
           <div
+            ref={transcript}
+            tabIndex={0}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              followResponse.current = el.scrollHeight - el.scrollTop - el.clientHeight < 64;
+            }}
             className="ai-transcript"
             role="log"
             aria-label="Conversation messages"
             aria-live="polite"
+            aria-busy={busy}
             aria-relevant="additions text"
           >
             {!messages.length && (
-              <div className="ai-empty">
-                <span className="ai-eyebrow">TERRALAB / AI</span>
-                <h2>Understand your next experiment.</h2>
-                <p>
-                  Explore the network you’ve built, question its assumptions, and plan a clearer
-                  comparison.
-                </p>
-                <div className="ai-starters">
-                  {starters.map((prompt) => (
-                    <button key={prompt} onClick={() => setDraft(prompt)}>
-                      {prompt}
-                      <ArrowUp size={15} />
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <p className="ai-chat-empty">
+                Your research conversation starts here. Ask about the selected network or use a
+                prompt from the sidebar.
+              </p>
             )}
-            {messages.map((message, i) => (
-              <article className={`ai-message ai-${message.role}`} key={i}>
-                <h3>
-                  {message.role === 'user' ? 'You' : 'TerraLab AI · Explanation / proposed actions'}
-                </h3>
-                <p>
-                  {message.content || (busy ? 'Waiting for provider…' : 'No completed response.')}
-                </p>
-              </article>
-            ))}
-            <AIAgentActivity
-              busy={busy}
-              status={turnStatus}
-              startedAt={turnStarted}
-              events={toolEvents}
-              plans={plans}
-              approval={!!approval}
-              run={runView}
-              projectId={projectId}
-            />
-            {researchSelection.document &&
-              !busy &&
-              turnStatus === 'completed' &&
-              messages.at(-1)?.content && (
-                <Button onClick={reviewResearchDraft}>Review draft in document</Button>
-              )}
-            <div ref={end} />
+            <div className="ai-transcript-content">
+              {messages.map((message, i) => (
+                <article className={`ai-message ai-${message.role}`} key={i}>
+                  <h3>
+                    {message.role === 'user'
+                      ? 'You'
+                      : 'TerraLab AI · Explanation / proposed actions'}
+                  </h3>
+                  <AIResponse
+                    content={message.content}
+                    streaming={message.role === 'assistant' && busy && i === messages.length - 1}
+                  />
+                </article>
+              ))}
+              <AIAgentActivity
+                busy={busy}
+                status={turnStatus}
+                startedAt={turnStarted}
+                events={toolEvents}
+                plans={plans}
+                approval={!!approval}
+                run={runView}
+                projectId={projectId}
+              />
+              {researchSelection.document &&
+                !busy &&
+                turnStatus === 'completed' &&
+                messages.at(-1)?.content && (
+                  <Button onClick={reviewResearchDraft}>Review draft in document</Button>
+                )}
+            </div>
           </div>
           <div className="ai-compose-area">
-            {settings &&
-              (settings.actorId || settings.mode === 'local-development') &&
-              projects.some((p) => p.id === projectId) && (
-                <AIResearchTasks
-                  key={
-                    (settings.actorId ||
-                      (settings.mode === 'local-development' ? 'local-development' : '')) +
-                    ':' +
-                    projectId
-                  }
-                  actor={
-                    settings.actorId ||
-                    (settings.mode === 'local-development' ? 'local-development' : '')
-                  }
-                  project={projects.find((p) => p.id === projectId)!}
-                  api={api}
-                  contextInput={contextInput}
-                  approval={approval}
-                  onApproval={setApproval}
-                  outcome={taskOutcome}
-                  runView={runView}
-                  trackedRun={trackedRun}
-                  onTrackRun={setTrackedRun}
-                  testId={trackedTest}
-                  onTrackTest={setTrackedTest}
-                  testingEnabled={settings.testingEnabled === true}
-                  onDraft={setDraft}
-                />
-              )}
             {agentEnabled && context && (
               <div className="ai-research-controls">
                 <Button
@@ -1458,7 +1558,7 @@ export default function AIStudio() {
             )}
             {runView && (
               <Link href={'/research?project=' + projectId + '&run=' + runView.id}>
-                Add this run to Research Workspace
+                Add this run to Manuscript
               </Link>
             )}
             {runView && (

@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Project } from '@terralab/shared';
 import { listProjects, supabase } from '@/lib/persistence';
 import { workspaceIndex } from '@/lib/research';
@@ -58,11 +58,10 @@ type Draft = {
 };
 export default function ResearchWorkspace() {
   const router = useRouter();
-  const fallbackTheme = useStudio((s) => s.project.canvas.theme);
+  const theme = useStudio((s) => s.project.canvas.theme);
   const [projects, setProjects] = useState<Project[]>([]),
     [projectId, setProjectId] = useState(''),
     [projectRole, setProjectRole] = useState('viewer');
-  const theme = projects.find((p) => p.id === projectId)?.canvas.theme ?? fallbackTheme;
   const [index, setIndex] = useState<WorkspaceIndex | null>(null),
     [document, setDocument] = useState<ResearchDocument | null>(null),
     [base, setBase] = useState<ResearchDocument | null>(null);
@@ -97,6 +96,14 @@ export default function ResearchWorkspace() {
   currentDoc.current = document;
   const editable = !!document && document.role !== 'viewer' && projectRole !== 'viewer';
   const dirty = !!document && !!base && !sameManuscript(document, base);
+  const lineNumbers = useMemo(
+    () =>
+      Array.from(
+        { length: (document?.source.match(/\n/g)?.length ?? 0) + 1 },
+        (_, i) => i + 1,
+      ).join('\n'),
+    [document?.source],
+  );
   const draftKey = (id: string) =>
     `terralab.manuscript.draft.v1:${index?.actor}:${projectId}:${id}`;
   useEffect(() => {
@@ -497,8 +504,10 @@ export default function ResearchWorkspace() {
     <main className={`research-workspace research-page theme-${theme}`}>
       <header className="research-workspace-header">
         <div>
-          <h1>Research Workspace</h1>
-          <p>Sources, manuscripts and reproducible evidence</p>
+          <h1>
+            TerraLab <span>Manuscript</span>
+          </h1>
+          <p>Write, review and trace your research</p>
         </div>
         <nav>
           <Link href="/projects">Projects</Link>
@@ -595,7 +604,7 @@ export default function ResearchWorkspace() {
       {index && (
         <div className="research-workspace-layout">
           <aside className="research-library" aria-label="Research library">
-            <h2>Project library</h2>
+            <h2>Project files</h2>
             {sourceIds.length > 0 && (
               <Link
                 href={aiURL(
@@ -701,7 +710,18 @@ export default function ResearchWorkspace() {
           <section className="research-writing" aria-label="Research writing">
             {selectedAsset && (
               <section className="research-asset" aria-label="Selected research asset">
-                <h2>{selectedAsset.name}</h2>
+                <div className="manuscript-asset-heading">
+                  <h2>{selectedAsset.name}</h2>
+                  <button
+                    aria-label="Close source viewer"
+                    onClick={() => {
+                      setSelectedAsset(null);
+                      setAssetURL('');
+                    }}
+                  >
+                    Close source viewer ×
+                  </button>
+                </div>
                 <p>
                   {selectedAsset.mime} · {(selectedAsset.bytes / 1024).toFixed(1)} KiB · SHA-256{' '}
                   {selectedAsset.sha256}
@@ -1047,20 +1067,39 @@ export default function ResearchWorkspace() {
                 <div className={'research-source-layout mode-' + mode}>
                   {mode !== 'preview' && (
                     <label className="research-source">
-                      LaTeX source
-                      <textarea
-                        aria-label="LaTeX source"
-                        spellCheck={false}
-                        value={document.source}
-                        readOnly={!editable}
-                        maxLength={120000}
-                        onChange={(e) =>
-                          setDocument((d) => (d ? { ...d, source: e.target.value } : d))
-                        }
-                      />
+                      <span className="manuscript-pane-title">
+                        main.tex <small>LaTeX source</small>
+                      </span>
+                      <div className="manuscript-editor">
+                        <pre className="manuscript-line-numbers" aria-hidden="true">
+                          {lineNumbers}
+                        </pre>
+                        <textarea
+                          wrap="off"
+                          onScroll={(e) => {
+                            const gutter = e.currentTarget.previousElementSibling;
+                            if (gutter) gutter.scrollTop = e.currentTarget.scrollTop;
+                          }}
+                          aria-label="LaTeX source"
+                          spellCheck={false}
+                          value={document.source}
+                          readOnly={!editable}
+                          maxLength={120000}
+                          onChange={(e) =>
+                            setDocument((d) => (d ? { ...d, source: e.target.value } : d))
+                          }
+                        />
+                      </div>
                     </label>
                   )}
-                  {mode !== 'source' && <Preview source={document.source} />}
+                  {mode !== 'source' && (
+                    <div className="manuscript-preview-pane">
+                      <div className="manuscript-pane-title">
+                        Live preview <small>Math and structure</small>
+                      </div>
+                      <Preview source={document.source} />
+                    </div>
+                  )}
                 </div>
                 <p className="research-limit">
                   Math preview uses KaTeX. Full paper layout, bibliography resolution and PDF

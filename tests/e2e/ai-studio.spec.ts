@@ -20,7 +20,7 @@ test('AI Studio shows honest unauthenticated states and fits desktop and mobile'
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('textbox', { name: 'Message TerraLab AI' }).focus();
   await page.keyboard.press('Shift+Tab');
-  await expect(page.getByRole('button', { name: /Which assumptions/ })).toBeFocused();
+  await expect(page.getByRole('log', { name: 'Conversation messages' })).toBeFocused();
 });
 
 test('AI Studio renders verified context, streamed text, retry and errors using explicit browser fixtures', async ({

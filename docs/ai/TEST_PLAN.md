@@ -2,6 +2,10 @@
 
 Updated 22 October 2026. Ordinary suites are deterministic and require no paid inference. Live local model acceptance is separate and explicitly opted in. Results and known limitations are recorded in [PHASE_3_REPORT.md](PHASE_3_REPORT.md).
 
+## Workbench follow-up acceptance
+
+See [WORKBENCH_FOLLOWUP.md](WORKBENCH_FOLLOWUP.md): 277 unit tests, 14 distinct AI/Manuscript browser cases, 52 simulator cases, eight authenticated browser cases, 23 research security groups, typecheck/build, actual free Qwen explanation and a hosted rolled-back database save/read/revision/audit check. The new source of deployment identity is /api/version.
+
 ## Current enhancement acceptance (22 October 2026)
 
 These results supersede earlier phase counts below. No lint runner is configured. The same .next-tests directory is used sequentially; ordinary .next and the free profile's .next-local-ai are left separate.

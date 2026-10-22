@@ -167,9 +167,9 @@ export function ResearchDashboardShell({
         <nav aria-label="Research navigation">
           <CollaborationLink />
           <AIStudioLink />
-          <Link href="/research">
+          <Link href="/research" className="dashboard-collaboration-link">
             <FileText size={18} />
-            Research Workspace
+            Manuscript
           </Link>
           <button
             className={view === 'Home' ? 'active' : ''}

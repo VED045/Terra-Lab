@@ -120,6 +120,32 @@ const server = createServer(async (req, res) => {
       return res.end('{}');
     }
     res.setHeader('Content-Type', 'application/x-ndjson');
+    if (question === 'fixture formatted long') {
+      const text =
+        '## Network review\n**Measured facts**\n\n1. Inspect the saved configuration.\n2. Review the actual run.\n\n\x60\x60\x60json\n{"timingNs":1}\n\x60\x60\x60\n\n| Estimator | RMSE |\n| --- | --- |\n| LS | unavailable |\n\n' +
+        Array.from(
+          { length: 32 },
+          (_, i) =>
+            'Paragraph ' +
+            (i + 1) +
+            ': This is explicitly simulated provider prose for scrolling and formatting acceptance. No measured result is claimed.\n\n',
+        ).join('');
+      let offset = 0;
+      const timer = setInterval(() => {
+        if (offset >= text.length) {
+          clearInterval(timer);
+          res.end('{"done":true}\n');
+          return;
+        }
+        res.write(
+          JSON.stringify({ message: { content: text.slice(offset, offset + 110) }, done: false }) +
+            '\n',
+        );
+        offset += 110;
+      }, 80);
+      res.on('close', () => clearInterval(timer));
+      return;
+    }
     const summary = JSON.parse(body.messages[0].content.split('PROJECT SUMMARY:\n')[1]);
     const text = `Protocol fixture: verified summary contains ${summary.objects.anchors.total} anchors. Geometry affects dilution of precision. No experiment was executed.`;
     res.write(JSON.stringify({ message: { content: text }, done: false }) + '\n');

@@ -781,7 +781,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
         </span>
         <div className="command-actions">
           <Button size="sm" disabled={save.isPending} onClick={() => void openAIStudio('research')}>
-            Research
+            Manuscript
           </Button>
           <Button
             size="sm"

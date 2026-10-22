@@ -107,3 +107,5 @@ npx vitest run apps/web/lib/ai/smoke.test.ts
 ```
 
 It performs model discovery and one text request and **may bill your account**. It does not print keys or model output. The terminal command does not automatically load Next.js `.env.local`; supply secrets through the process environment. The smoke test remains skipped unless explicitly enabled. For Ollama adapter smoke tests, the process also needs `NODE_ENV=development`, both local opt-in flags, an installed completion model and `TERRALAB_AI_SMOKE_PROVIDER=ollama`. No live smoke test was enabled during implementation.
+
+Current interface: [TerraLab Manuscript and AI workbench follow-up](WORKBENCH_FOLLOWUP.md). The deployed research migration is now applied. Use /api/version when comparing the local and deployed commit.

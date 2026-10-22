@@ -75,7 +75,7 @@ Local Ollama remains on loopback. A remote deployed site cannot directly use thi
 
 ## 8. Write a paper and use selected sources
 
-1. From Network studio choose **Research** to save and open this project's Research Workspace. **Add canvas evidence** captures the actual 2D or 3D renderer and opens the resulting private asset.
+1. From Network studio choose **Manuscript** to save and open this project's Research Workspace. **Add canvas evidence** captures the actual 2D or 3D renderer and opens the resulting private asset.
 2. Choose **New paper** for a template or **Blank document**. Edit title, authors and LaTeX source. Use source/preview layouts; Ctrl/Cmd+S saves a checked revision. Recoverable drafts and revision history preserve conflicting work.
 3. Choose **Upload source or figure**. Supported files are PDF, TXT, MD, TEX, CSV, JSON, PNG and JPEG. Local files can be up to 10 MiB; cloud uploads through the app can be up to 4 MiB. Extraction retains the original and reports unsupported/scanned PDFs honestly.
 4. Open a file and use **Attach to document**. Under **Add evidence and captions**, choose an actual saved run, add its measured metrics, and insert a captioned figure or supported table. Download referenced original files alongside exported .tex source and the evidence manifest.

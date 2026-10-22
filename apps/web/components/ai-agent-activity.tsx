@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { Check, LoaderCircle, Clock3, X, Circle } from 'lucide-react';
 import type { AgentEvent } from '@/lib/ai/agent-contracts';
 
 type ToolEvent = Extract<AgentEvent, { type: 'tool' }>;
@@ -34,7 +35,7 @@ export function AIAgentActivity({
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [busy, startedAt]);
-  if (status === 'idle') return null;
+
   const steps: { label: string; state: string; detail?: string; result?: unknown }[] = [
     {
       label: 'Request',
@@ -65,20 +66,56 @@ export function AIAgentActivity({
         ? 'Turn finished; experiment status and pending approvals remain separate.'
         : undefined,
   });
+  const activeIndex = Math.max(
+    0,
+    steps.findIndex((step) => ['executing', 'running', 'waiting', 'queued'].includes(step.state)) <
+      0
+      ? steps.length - 1
+      : steps.findIndex((step) =>
+          ['executing', 'running', 'waiting', 'queued'].includes(step.state),
+        ),
+  );
+  const track = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    const el = track.current,
+      active = el?.children[activeIndex] as HTMLElement | undefined;
+    if (el && active)
+      el.scrollLeft = Math.max(
+        0,
+        active.offsetLeft - el.offsetLeft - el.clientWidth / 2 + active.clientWidth / 2,
+      );
+  }, [activeIndex]);
+  if (status === 'idle') return null;
   return (
-    <section className="ai-agent-flow" aria-label="Agent activity">
+    <section className="ai-agent-flow" data-busy={busy} aria-label="Agent activity">
       <header>
         <strong>Agent activity</strong>
         <span>
           {approval ? 'Awaiting approval' : status} · {elapsed}s
         </span>
       </header>
-      <ol>
+      <ol ref={track}>
         {steps.map((step, index) => (
-          <li key={index} data-state={step.state}>
+          <li
+            key={index}
+            data-state={step.state}
+            className={index === activeIndex ? 'is-active' : undefined}
+          >
             <details>
               <summary>
-                <span className="ai-flow-dot" aria-hidden="true" />
+                <span className="ai-flow-dot" aria-hidden="true">
+                  {step.state === 'completed' ? (
+                    <Check size={12} />
+                  ) : ['executing', 'running'].includes(step.state) ? (
+                    <LoaderCircle size={12} />
+                  ) : step.state === 'waiting' ? (
+                    <Clock3 size={12} />
+                  ) : ['failed', 'cancelled'].includes(step.state) ? (
+                    <X size={12} />
+                  ) : (
+                    <Circle size={9} />
+                  )}
+                </span>
                 {step.label}
                 <small>{step.state}</small>
               </summary>

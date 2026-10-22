@@ -132,14 +132,14 @@ export default function NetworkCanvas({
       Math.min(
         12,
         (size.width - 120) / Math.max(20, maxX - minX),
-        (size.height - 255) / Math.max(20, maxY - minY),
+        (size.height - (readOnly ? 150 : 255)) / Math.max(20, maxY - minY),
       ),
     );
     edit((p) => {
       p.canvas.zoom = z;
       p.canvas.pan = { x: (-(minX + maxX) / 2) * z, y: 27.5 + ((minY + maxY) / 2) * z };
     });
-  }, [project.objects, size.width, size.height, edit]);
+  }, [project.objects, size.width, size.height, edit, readOnly]);
   const fittedViewport = useRef('');
   useEffect(() => {
     if (!fitOnLoad || !measured || size.width <= 0 || size.height <= 0) return;

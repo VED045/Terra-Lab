@@ -2,6 +2,10 @@
 
 22 October 2026. Started from clean `main`, `2f90a23`; origin is `VED045/Terra-Lab`. Existing phase reports were checked against source. The user's follow-up explicitly authorizes pushing completed changes. Production settings and Render remain untouched.
 
+## Current follow-up
+
+See [the workbench follow-up](WORKBENCH_FOLLOWUP.md) for TerraLab Manuscript, fixed sidebar alignment, independent chat scrolling, formatted/typed responses, shared theme, vertical tools and the animated active-stage meteor. The research migration has now been applied and verified on Terra-Lab. Earlier stage results below remain historical.
+
 ## Stage 1
 
 Implemented a compact workbench, optional context region, inline activity flow with real tool states and expandable actual results, elapsed time, reduced-motion styling, and explicit failure/cancellation states. A completed model turn does not imply an approved mutation or completed experiment. Existing streaming, stop/retry, review tokens and task recovery remain intact.

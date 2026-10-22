@@ -2,6 +2,10 @@
 
 22 October 2026. This is Stage 3 of the AI Studio enhancement brief. Stage 1 and Stage 2 are recorded in [AI Studio UX](../ai/AI_STUDIO_UX_REPORT.md) and [local model connectivity](../ai/LOCAL_MODEL_CONNECTIVITY.md). The existing agent, scientific engines, reviewed tools, project roles and worker architecture are retained.
 
+## Follow-up status
+
+The page is now named **TerraLab Manuscript**, with a line-numbered source/preview desk. The missing hosted migration has been applied, PostgREST refreshed and the live database RPC/RLS verified in a rolled-back owner transaction. See [the follow-up report](../ai/WORKBENCH_FOLLOWUP.md). Statements below about the initial unconfigured hosted database describe the earlier delivery.
+
 ## Delivered behavior
 
 `/research?project=<id>` owns papers, source files, figures and writing. Research is linked from the main research navigation and Network studio. Network studio saves the current project before navigation. Its **Add canvas evidence** action captures the actual 2D SVG or 3D WebGL surface, pauses playback for capture, records the saved revision, selection, mode and time, and rejects a changed canvas. HTML overlays are excluded from the 3D image and are explicitly identified in metadata. Capture waits for renderer readiness and prevents duplicate in-flight capture actions.

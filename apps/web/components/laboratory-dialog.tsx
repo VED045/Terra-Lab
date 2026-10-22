@@ -820,7 +820,7 @@ export function LaboratoryDialog({
                   <Link
                     href={'/research?project=' + result.request.project.id + '&run=' + result.id}
                   >
-                    Add to Research Workspace
+                    Add to Manuscript
                   </Link>
                   <Button
                     onClick={() =>
