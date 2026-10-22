@@ -13,6 +13,12 @@ import { freshCopy } from '@/lib/research';
 import type { AgentEvent, ApprovalView } from '@/lib/ai/agent-contracts';
 import { AIActionReview } from './ai-action-review';
 import { AIResearchTasks } from './ai-research-tasks';
+import { AIAgentActivity } from './ai-agent-activity';
+import {
+  connectionFailure,
+  transientConnectionFailure,
+  type ConnectionState,
+} from '@/lib/ai/connection-state';
 import { AIProjectCanvas } from './ai-project-canvas';
 import type { ActionOutcome } from '@/lib/ai/task-history';
 import { useStudio } from '@/lib/store';
@@ -80,6 +86,15 @@ export default function AIStudio() {
   const [provider, setProvider] = useState<ProviderId>('deepseek');
   const [models, setModels] = useState<string[]>([]);
   const [model, setModel] = useState('');
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  const [diagnostic, setDiagnostic] = useState('');
+  const [capability, setCapability] = useState('Not tested');
+  const [contextOpen, setContextOpen] = useState(true);
+  const connectionInFlight = useRef(false);
+  const [turnStatus, setTurnStatus] = useState<
+    'idle' | 'running' | 'completed' | 'failed' | 'cancelled'
+  >('idle');
+  const [turnStarted, setTurnStarted] = useState(0);
   const [connected, setConnected] = useState(false);
   const [checking, setChecking] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -150,6 +165,8 @@ export default function AIStudio() {
     abort.current?.abort();
     setBusy(false);
     setMessages([]);
+    setTurnStatus('idle');
+    setTurnStarted(0);
     setActivity([]);
     setError('');
     setNotice('');
@@ -320,15 +337,32 @@ export default function AIStudio() {
     };
   }
   async function checkConnection() {
+    if (connectionInFlight.current) return;
+    connectionInFlight.current = true;
     const epoch = revision.current;
     setChecking(true);
     setError('');
     setConnected(false);
+    setCapability('Not tested');
+    setConnectionState('checking');
+    setDiagnostic('Checking the configured service and installed models…');
     try {
-      const result = await (
-        await api('connection', { method: 'POST', body: JSON.stringify({ provider }) })
-      ).json();
-      if (epoch !== revision.current) return;
+      let result;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          result = await (
+            await api('connection', { method: 'POST', body: JSON.stringify({ provider }) })
+          ).json();
+          break;
+        } catch (e) {
+          if (epoch !== revision.current) return;
+          if (attempt || !transientConnectionFailure((e as { code?: string }).code)) throw e;
+          setConnectionState('connecting');
+          setDiagnostic('Service may be starting. One bounded retry…');
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+      if (epoch !== revision.current || !result) return;
       setModels(result.models);
       setModel((current) =>
         result.models.includes(current)
@@ -340,12 +374,45 @@ export default function AIStudio() {
             : '',
       );
       setConnected(result.checked === true);
+      setConnectionState('connected');
+      setDiagnostic(
+        'API reachable; installed model list verified. Generation and tools are separate tests.',
+      );
       setNotice('Connection verified. Choose a model before sending.');
     } catch (e) {
       if (epoch === revision.current) {
+        setConnectionState('error');
         setError((e as Error).message);
+        setDiagnostic(connectionFailure((e as { code?: string }).code));
         setModels([]);
         setModel('');
+      }
+    } finally {
+      connectionInFlight.current = false;
+      if (epoch === revision.current) setChecking(false);
+    }
+  }
+  async function smokeTest() {
+    const epoch = revision.current;
+    setChecking(true);
+    setCapability('Testing generation…');
+    setError('');
+    try {
+      const result = await (
+        await api('connection', {
+          method: 'POST',
+          body: JSON.stringify({ provider, model, generation: true }),
+        })
+      ).json();
+      if (epoch === revision.current)
+        setCapability(
+          result.generated ? 'Conversation verified; tools not tested' : 'Generation not verified',
+        );
+    } catch (e) {
+      if (epoch === revision.current) {
+        setConnectionState('degraded');
+        setCapability('Generation failed');
+        setError((e as Error).message);
       }
     } finally {
       if (epoch === revision.current) setChecking(false);
@@ -456,6 +523,7 @@ export default function AIStudio() {
         }
       }
       if (!completed) throw Error('The response ended early. Retry when ready.');
+      setTurnStatus('completed');
       setActivity((items) => [
         ...items,
         agentEnabled
@@ -464,6 +532,7 @@ export default function AIStudio() {
       ]);
     } catch (e) {
       if (current !== revision.current) return;
+      setTurnStatus(controller.signal.aborted ? 'cancelled' : 'failed');
       if (controller.signal.aborted) setNotice('Response stopped. Partial text is unverified.');
       else setError((e as Error).message);
     } finally {
@@ -684,8 +753,21 @@ export default function AIStudio() {
           Provider settings
         </Button>
       </header>
-      <div className="ai-layout">
-        <aside className="ai-context" aria-label="Project context">
+      <div className={'ai-layout' + (contextOpen ? '' : ' context-hidden')}>
+        <button
+          className="ai-context-control"
+          aria-expanded={contextOpen}
+          aria-controls="ai-context-panel"
+          onClick={() => setContextOpen((v) => !v)}
+        >
+          {contextOpen ? 'Hide context' : 'Show context'}
+        </button>
+        <aside
+          id="ai-context-panel"
+          className="ai-context"
+          aria-label="Project context"
+          hidden={!contextOpen}
+        >
           <h2>Research context</h2>
           <label htmlFor="ai-project">Saved project</label>
           <select
@@ -753,39 +835,14 @@ export default function AIStudio() {
               before execution.
             </p>
           </div>
-          <section className="ai-activity" aria-label="Verified activity">
-            <h2>Activity</h2>
-            <p>Only completed server checks appear as verified activity.</p>
-            <ol aria-live="polite">
+          <details className="ai-activity" aria-label="Verified activity">
+            <summary>Technical execution history</summary>
+            <ol>
               {activity.map((item, i) => (
                 <li key={i}>{item}</li>
               ))}
             </ol>
-            {plans.length > 0 && (
-              <section aria-label="Proposed plan">
-                <h3>Proposed plan</h3>
-                {plans.map((plan, index) => (
-                  <p key={index}>{plan}</p>
-                ))}
-              </section>
-            )}
-            <ol className="ai-tool-timeline" aria-live="polite">
-              {toolEvents.map((event) => (
-                <li key={event.id}>
-                  <strong>
-                    {event.name} · {event.state}
-                  </strong>
-                  <p>{event.summary}</p>
-                  {event.result !== undefined && (
-                    <details>
-                      <summary>Actual tool result</summary>
-                      <pre>{JSON.stringify(event.result, null, 2)}</pre>
-                    </details>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </section>
+          </details>
         </aside>
         <section className="ai-conversation" aria-label="Research conversation">
           <div className="ai-toolbar">
@@ -817,6 +874,9 @@ export default function AIStudio() {
                 onChange={(e) => {
                   resetConversation();
                   setProvider(e.target.value as ProviderId);
+                  setConnectionState('disconnected');
+                  setDiagnostic('');
+                  setCapability('Not tested');
                   setConnected(false);
                   setModels([]);
                   setModel('');
@@ -837,6 +897,7 @@ export default function AIStudio() {
                 onChange={(e) => {
                   resetConversation();
                   setModel(e.target.value);
+                  setCapability('Not tested');
                   if (provider === 'ollama' && e.target.value === settings?.analysisLocalModel) {
                     setAgentEnabled(false);
                     setNotice(
@@ -864,9 +925,17 @@ export default function AIStudio() {
             </Button>
             <span className="ai-connection">
               <Circle size={9} fill={connected ? 'currentColor' : 'none'} />
-              {connected ? 'Verified' : 'Not checked'}
+              {connected
+                ? 'Verified'
+                : connectionState === 'disconnected'
+                  ? 'Not checked'
+                  : connectionState}
             </span>
           </div>
+          <p className="ai-diagnostic" aria-live="polite">
+            {diagnostic || 'Choose a provider, check the connection, then select a model.'}{' '}
+            <span>{capability}</span>
+          </p>
           {settingsOpen && (
             <section
               className="ai-settings"
@@ -874,6 +943,56 @@ export default function AIStudio() {
               aria-label="Provider settings"
             >
               <h2>Your provider, your account</h2>
+              <ol className="ai-setup-steps">
+                <li>Choose local or hosted inference.</li>
+                <li>Check availability and select a model.</li>
+                <li>Test generation; verify tools separately.</li>
+              </ol>
+              <details open={provider === 'ollama'}>
+                <summary>Local Ollama · free downloaded weights</summary>
+                <p>
+                  Inference stays on your machine. No API key is needed. Install Ollama and a
+                  compatible model manually, then launch the free local runtime from your TerraLab
+                  folder.
+                </p>
+                <pre>node scripts/start-local-ai.mjs</pre>
+                <a href="http://127.0.0.1:13040/ai" target="_blank" rel="noreferrer">
+                  Open local AI Studio
+                </a>
+                <p>
+                  The runtime uses dedicated Ollama on 127.0.0.1:11435. Desktop Ollama normally uses
+                  11434. A deployed server cannot inspect your laptop. Ports remain private.
+                </p>
+              </details>
+              <details open={provider === 'deepseek'}>
+                <summary>DeepSeek API · hosted, may incur charges</summary>
+                <p>
+                  Create your own key at{' '}
+                  <a href="https://platform.deepseek.com/" target="_blank" rel="noreferrer">
+                    DeepSeek Platform
+                  </a>
+                  . Review{' '}
+                  <a
+                    href="https://api-docs.deepseek.com/quick_start/pricing"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    pricing
+                  </a>{' '}
+                  and{' '}
+                  <a href="https://api-docs.deepseek.com/" target="_blank" rel="noreferrer">
+                    API documentation
+                  </a>
+                  . Enter it only in the password field below. Check your account for quota and
+                  billing. Generation is a separate opt-in test.
+                </p>
+              </details>
+              <Button
+                disabled={busy || checking || !model || !connected}
+                onClick={() => void smokeTest()}
+              >
+                Test generation
+              </Button>
               <p>
                 DeepSeek receives your messages and the minimal project summary shown here. An API
                 key is required; DeepSeek may bill your account. TerraLab supplies no shared key and
@@ -982,6 +1101,16 @@ export default function AIStudio() {
                 </p>
               </article>
             ))}
+            <AIAgentActivity
+              busy={busy}
+              status={turnStatus}
+              startedAt={turnStarted}
+              events={toolEvents}
+              plans={plans}
+              approval={!!approval}
+              run={runView}
+              projectId={projectId}
+            />
             <div ref={end} />
           </div>
           <div className="ai-compose-area">
