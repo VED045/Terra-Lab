@@ -139,10 +139,10 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
                   />
                   Enabled in simulation
                 </label>
-                <section className="property-section">
-                  <div className="section-title">
+                <details className="property-section" open>
+                  <summary className="section-title">
                     POSITION <span>WORLD COORDINATES</span>
-                  </div>
+                  </summary>
                   <div className="field-pair">
                     <NumberField
                       label="X position"
@@ -167,17 +167,17 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
                       ? 'Initial position at t = 0. Altitude is metadata for the 2D baseline.'
                       : 'Surveyed Cartesian coordinates in metres.'}
                   </p>
-                </section>
+                </details>
                 {o.kind === 'anchor' && (
                   <>
-                    <section className="property-section">
-                      <div className="section-title">RADIO CONFIGURATION</div>
+                    <details className="property-section" open>
+                      <summary className="section-title">RADIO CONFIGURATION</summary>
                       {n('Transmit power', 'power', 'dBm', -100, 100)}
                       {n('Carrier frequency', 'frequency', 'MHz', 0.001, 100000)}
                       {n('Bandwidth', 'bandwidth', 'MHz', 0.001, 10000)}
-                    </section>
-                    <section className="property-section">
-                      <div className="section-title">TIMING & CALIBRATION</div>
+                    </details>
+                    <details className="property-section" open>
+                      <summary className="section-title">TIMING & CALIBRATION</summary>
                       {n('Timing offset', 'timingOffset', 'ns')}
                       {n('Timing uncertainty', 'timingUncertainty', 'ns', 0)}
                       {n('Clock drift', 'clockDrift', 'ppm')}
@@ -187,18 +187,18 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
                         these residual timing/hardware errors; 1 ns corresponds to 0.299792458 m
                         one-way and 1 ppm drift adds 1,000 ns per second.
                       </p>
-                    </section>
-                    <section className="property-section">
-                      <div className="section-title">RANGE MEASUREMENT</div>
+                    </details>
+                    <details className="property-section" open>
+                      <summary className="section-title">RANGE MEASUREMENT</summary>
                       {n('Range noise σ', 'noise', 'm', 0, 1000)}
                       <p className="field-caption">Set σ to 0 for noiseless recovery.</p>
-                    </section>
+                    </details>
                   </>
                 )}
                 {o.kind === 'receiver' && (
                   <>
-                    <section className="property-section">
-                      <div className="section-title">RECEIVER MODEL</div>
+                    <details className="property-section" open>
+                      <summary className="section-title">RECEIVER MODEL</summary>
                       <label className="select-field">
                         Device type
                         <select
@@ -212,11 +212,11 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
                       </label>
                       {n('Clock offset', 'clockOffset', 'ns')}
                       {n('Clock drift', 'clockDrift', 'ppm')}
-                    </section>
-                    <section className="property-section">
-                      <div className="section-title">
+                    </details>
+                    <details className="property-section" open>
+                      <summary className="section-title">
                         MOBILITY MODEL <ChevronDown size={12} />
-                      </div>
+                      </summary>
                       <label className="select-field">
                         Motion
                         <select
@@ -262,12 +262,12 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
                           </p>
                         </>
                       )}
-                    </section>
+                    </details>
                   </>
                 )}
                 {o.kind === 'obstacle' && (
-                  <section className="property-section">
-                    <div className="section-title">OBSTACLE GEOMETRY</div>
+                  <details className="property-section" open>
+                    <summary className="section-title">OBSTACLE GEOMETRY</summary>
                     <label className="select-field">
                       Shape
                       <select
@@ -353,11 +353,11 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
                       Footprint intersections and positioning remain 2D. Vertical dimensions
                       describe the scene and do not alter the approved propagation or solver model.
                     </p>
-                  </section>
+                  </details>
                 )}
                 {o.kind === 'trajectory' && (
-                  <section className="property-section">
-                    <div className="section-title">WAYPOINT TRAJECTORY</div>
+                  <details className="property-section" open>
+                    <summary className="section-title">WAYPOINT TRAJECTORY</summary>
                     {n('Path speed', 'speed', 'm/s', 0, 1000)}
                     <label className="check-row">
                       <input
@@ -379,7 +379,7 @@ export default function Inspector({ verifiedSolution }: { verifiedSolution?: Sol
                       onChange={(points) => update(o.id, { points })}
                       minimum={1}
                     />
-                  </section>
+                  </details>
                 )}
                 <div className="object-actions">
                   <Button size="sm" onClick={() => useStudio.getState().duplicate()}>

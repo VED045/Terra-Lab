@@ -63,6 +63,8 @@ test('waypoint mobility plays, pauses, steps, scrubs and stops', async ({ page }
   await expect(page.getByTestId('simulation-time')).toContainText('00:00.0');
 });
 test('draws polygons and paths and supports object context actions', async ({ page }) => {
+  // Drawing coordinates target the open canvas, clear of the dock and floating controls.
+  await page.setViewportSize({ width: 1440, height: 960 });
   await boot(page);
   const canvas = page.getByRole('application');
   await page.getByRole('button', { name: 'Draw polygon · Enter to finish' }).click();

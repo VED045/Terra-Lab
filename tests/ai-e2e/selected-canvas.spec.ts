@@ -3,6 +3,7 @@ import { createTemplate } from '@terralab/shared';
 test('same saved canvas renderer, collapsible preview, and project-preserving edit/AI round trip', async ({
   page,
 }) => {
+  test.setTimeout(60000);
   const a = createTemplate('outdoor'),
     b = createTemplate('indoor');
   a.name = 'Canvas network A';
@@ -15,6 +16,9 @@ test('same saved canvas renderer, collapsible preview, and project-preserving ed
     },
     { a, b },
   );
+  // Compile both route graphs before exercising client navigation in the dev server.
+  // A fresh production AI-to-Studio transition is verified separately.
+  await page.request.get('/studio');
   await page.goto('/ai?project=' + a.id);
   const canvas = page.getByLabel('Selected project canvas');
   const rendering = () =>
@@ -44,7 +48,7 @@ test('same saved canvas renderer, collapsible preview, and project-preserving ed
   await expect(canvas).toContainText(b.name);
   await expect(canvas.locator('.network-node')).toHaveCount(0);
   await canvas.getByRole('button', { name: 'Edit canvas', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp('/studio\\?project=' + b.id));
+  await expect(page).toHaveURL(new RegExp('/studio\\?project=' + b.id), { timeout: 15000 });
   await expect(page.locator('.project-switcher')).toContainText(b.name);
   await page.getByRole('button', { name: 'Add transmitter (A)', exact: true }).click();
   await page
@@ -53,7 +57,7 @@ test('same saved canvas renderer, collapsible preview, and project-preserving ed
       exact: true,
     })
     .click({ position: { x: 180, y: 240 } });
-  await page.getByRole('button', { name: 'AI Studio', exact: true }).click();
+  await page.getByRole('link', { name: 'AI Studio', exact: true }).click();
   await expect(page).toHaveURL(new RegExp('/ai\\?project=' + b.id));
   await expect(page.getByRole('combobox', { name: 'Saved project', exact: true })).toHaveValue(
     b.id,

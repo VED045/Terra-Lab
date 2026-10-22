@@ -21,14 +21,13 @@ test('all dashboard palettes match their studio tokens', async ({ page }, info) 
       });
   }
 });
-test('requested action help appears above controls and remains keyboard accessible', async ({
-  page,
-}) => {
+test('action help stays on screen and remains keyboard accessible', async ({ page }) => {
   await page.goto('/');
   const baseline = page.getByRole('button', { name: 'Run baseline', exact: true });
   await baseline.hover();
   await expect(page.getByRole('tooltip')).toContainText('calibrated 2D');
-  await expect(page.getByRole('tooltip')).toHaveAttribute('data-side', 'top');
+  // The primary action now lives in the top bar, so Radix places its help below.
+  await expect(page.getByRole('tooltip')).toHaveAttribute('data-side', 'bottom');
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Scientific laboratory', exact: true }).focus();
   await expect(page.getByRole('tooltip')).toContainText('measurement models');
