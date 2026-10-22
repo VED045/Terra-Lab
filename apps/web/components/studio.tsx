@@ -78,6 +78,9 @@ import { SettingsDialog } from './settings-dialog';
 import { AccountDialog } from './project-dialogs';
 import { ResearchDashboard } from './research-dashboard';
 import { NetworkLogo } from './network-logo';
+import { uploadResearchAsset } from '@/lib/research-workspace/client';
+import { captureScenePng } from '@/lib/research-workspace/scene-capture';
+import { captureNetworkSvg, networkPng } from '@/lib/downloads';
 import { useSceneView } from '@/lib/scene-view';
 import { workspaceIndex } from '@/lib/research';
 import { projectContent } from '@/lib/project-content';
@@ -489,7 +492,7 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
     localStorage.setItem('terralab.active.v1', JSON.stringify(useStudio.getState().project));
     router.push('/studio');
   }
-  async function openAIStudio() {
+  async function openAIStudio(destination: 'ai' | 'research' = 'ai') {
     if (conflictBlocked) {
       setConflictOpen(true);
       return;
@@ -506,9 +509,71 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
         return;
       }
       localStorage.setItem('terralab.active.v1', JSON.stringify(latest.project));
-      router.push('/ai?project=' + encodeURIComponent(latest.project.id));
+      router.push('/' + destination + '?project=' + encodeURIComponent(latest.project.id));
     } catch {
       /* Existing save mutation reports the error and preserves the draft. */
+    }
+  }
+  const captureBusy = useRef(false);
+  const [capturingEvidence, setCapturingEvidence] = useState(false);
+  async function captureResearchEvidence() {
+    if (captureBusy.current) return;
+    captureBusy.current = true;
+    setCapturingEvidence(true);
+    const original = useStudio.getState().project;
+    try {
+      if (conflictBlocked) {
+        setConflictOpen(true);
+        return;
+      }
+      if (useStudio.getState().dirty || !original.cloudVersion) await saveAsync(original);
+      const state = useStudio.getState();
+      if (state.project.id !== original.id || state.dirty)
+        throw Error(
+          'The project changed while saving. Capture again after saving the current draft.',
+        );
+      const wasPlaying = state.playing;
+      state.play(false);
+      try {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        const snap = useStudio.getState(),
+          mode = useSceneView.getState().mode;
+        const content = projectContent(snap.project);
+        const blob =
+          mode === '3d'
+            ? await captureScenePng()
+            : await networkPng(captureNetworkSvg(), snap.project, snap.time);
+        if (projectContent(useStudio.getState().project) !== content)
+          throw Error('Canvas changed during capture. Capture again.');
+        const asset = await uploadResearchAsset(
+          snap.project.id,
+          new File([blob], 'canvas-' + mode + '-' + Date.now() + '.png', { type: 'image/png' }),
+          'Figures',
+          {
+            projectId: snap.project.id,
+            revision: (snap.project.cloudVersion ?? 'local') + ':' + snap.project.updatedAt,
+            mode,
+            timeSeconds: snap.time,
+            state: snap.dirty ? 'unsaved-editor-draft' : 'saved-project',
+            selectedIds: snap.selected,
+            capturedAt: new Date().toISOString(),
+            renderer:
+              mode === '3d'
+                ? 'actual WebGL canvas surface; HTML labels excluded'
+                : 'actual NetworkCanvas SVG rendered to PNG',
+          },
+        );
+        router.push(
+          '/research?project=' + encodeURIComponent(snap.project.id) + '&asset=' + asset.id,
+        );
+      } finally {
+        if (wasPlaying) useStudio.getState().play(true);
+      }
+    } catch (e) {
+      setNotice((e as Error).message);
+    } finally {
+      captureBusy.current = false;
+      setCapturingEvidence(false);
     }
   }
   function runDemo() {
@@ -715,6 +780,16 @@ function Workspace({ workspace }: { workspace: WorkspacePage }) {
           )}
         </span>
         <div className="command-actions">
+          <Button size="sm" disabled={save.isPending} onClick={() => void openAIStudio('research')}>
+            Research
+          </Button>
+          <Button
+            size="sm"
+            disabled={save.isPending || capturingEvidence}
+            onClick={() => void captureResearchEvidence()}
+          >
+            Add canvas evidence
+          </Button>
           <Button size="sm" disabled={save.isPending} onClick={() => void openAIStudio()}>
             AI Studio
           </Button>

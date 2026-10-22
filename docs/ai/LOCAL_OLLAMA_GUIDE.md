@@ -72,3 +72,16 @@ If a child exits during startup, the launcher reports the actual failure promptl
 **Stop response** stops inference. A separately submitted simulation/test needs its own reviewed cancellation. If status polling reaches the request limit, it waits through the cooldown and rereads the same job without resubmitting work.
 
 Local Ollama remains on loopback. A remote deployed site cannot directly use this laptop's local model; no public tunnel or paid fallback is configured.
+
+## 8. Write a paper and use selected sources
+
+1. From Network studio choose **Research** to save and open this project's Research Workspace. **Add canvas evidence** captures the actual 2D or 3D renderer and opens the resulting private asset.
+2. Choose **New paper** for a template or **Blank document**. Edit title, authors and LaTeX source. Use source/preview layouts; Ctrl/Cmd+S saves a checked revision. Recoverable drafts and revision history preserve conflicting work.
+3. Choose **Upload source or figure**. Supported files are PDF, TXT, MD, TEX, CSV, JSON, PNG and JPEG. Local files can be up to 10 MiB; cloud uploads through the app can be up to 4 MiB. Extraction retains the original and reports unsupported/scanned PDFs honestly.
+4. Open a file and use **Attach to document**. Under **Add evidence and captions**, choose an actual saved run, add its measured metrics, and insert a captioned figure or supported table. Download referenced original files alongside exported .tex source and the evidence manifest.
+5. Select up to two **Use in AI** checkboxes or open a paper and choose **Summarize selected paper**. AI Studio shows exactly which manuscript/source excerpts will be sent. Choose Local Ollama and review the included categories before Send.
+6. For generated writing, choose **Review draft in document**, edit/check the proposed text and explicitly approve insertion. A newer manuscript revision requires a fresh proposal. Original revisions remain available.
+7. Local documents stay on this device/origin. Cloud collaboration requires the documented migration, project membership, and explicit document sharing. Viewers cannot edit. Collaborators use versioned saves and explicit refresh; this is not realtime cursor co-editing.
+8. KaTeX previews equations and basic headings. To compile a complete paper, export .tex and referenced original figures, then use Overleaf or a trusted local TeX installation with shell escape disabled. TerraLab runs no uploaded TeX commands.
+
+No paper is automatically sent to a hosted provider. The installed free-only profile rejects hosted inference and cloud-backed Ollama models. The deployed website provides local launch instructions; it cannot directly call this laptop.

@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Archive,
@@ -166,6 +167,10 @@ export function ResearchDashboardShell({
         <nav aria-label="Research navigation">
           <CollaborationLink />
           <AIStudioLink />
+          <Link href="/research">
+            <FileText size={18} />
+            Research Workspace
+          </Link>
           <button
             className={view === 'Home' ? 'active' : ''}
             aria-current={view === 'Home' ? 'page' : undefined}

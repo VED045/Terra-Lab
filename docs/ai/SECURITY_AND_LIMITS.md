@@ -1,6 +1,18 @@
 # AI Studio security and limits
 
-## Phase 3 operational threat model
+## Current research enhancement
+
+The current context service selects the authorized project's config and authoritative version, includes only selected bounded scientific/research data, rejects stale view metadata and enforces category exclusions in tools. Cloud research sources are freshly RLS-authorized; browser source text is trusted only in explicit local mode. Sources are data, never authority. The 18,000-character research context/history budget is a conservative character cap, not a claim of exact token accounting.
+
+Research introduces the additive migration documented in [the delivery report](../research/RESEARCH_WORKSPACE_REPORT.md). New private tables, document grants, expected-version RPCs, original-file Storage and audit policies reuse existing current project roles. No service key is used. A project viewer cannot become an editor through a document grant. Revocation applies to subsequent requests; downloaded/displayed copies cannot be remotely erased.
+
+The upload route verifies same origin, fresh user/project editor authority, bounded multipart bodies, supported signatures/MIME/dimensions, actual hashes and server-derived paths. Cloud requests allow 4 MiB files; the private bucket allows 10 MiB and 256 files/project including unfinished uploads. Failed publish attempts trigger cleanup; tombstones block readers before deletion. Direct authorized editor metadata is untrusted, and an interrupted upload can leave an orphan for authorized cleanup. No malware scanner or billing guarantee is claimed.
+
+PDF extraction uses a bundled worker with time/page/text bounds, retains originals and executes no uploaded application code. Optional native PDF preview is sandboxed and has a download fallback. KaTeX has trust disabled, bounded expansion/expression counts and no file, shell, package or network compilation. Full paper PDF compilation is external. Research writing proposals require explicit review and a fresh expected version; no model write-document/shell/SQL tool exists.
+
+The free local-only runtime remains loopback-bound with hosted inference disabled. No direct remote-origin bridge, wildcard CORS, public tunnel or paid fallback was added. Hosted research migration and live Auth/Storage acceptance remain unverified; no production database/configuration or Render operation was performed.
+
+## Phase 3 operational threat model (historical scope)
 
 The model is an untrusted planner. The server's typed allowlist, current authority, exact review and real domain results determine what can happen. Phase 3 adds no model code-edit, SQL, shell-string, filesystem, browser or arbitrary-HTTP tool. Hosted test execution is disabled even if a testing flag is accidentally enabled. The existing scientific worker remains the sole numerical experiment queue.
 

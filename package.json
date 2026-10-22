@@ -24,7 +24,8 @@
     "test:e2e:auth": "node scripts/test-auth-browser.mjs",
     "brand:generate": "node scripts/generate-brand-assets.mjs",
     "test:production": "node scripts/test-production-scene.mjs",
-    "test:collaboration": "node scripts/test-collaboration.mjs"
+    "test:collaboration": "node scripts/test-collaboration.mjs",
+    "test:research": "node scripts/test-research-workspace.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",
@@ -35,6 +36,6 @@
     "vitest": "^4.0.0"
   },
   "engines": {
-    "node": ">=20.9"
+    "node": ">=22.13.0"
   }
 }

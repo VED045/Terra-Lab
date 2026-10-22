@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { researchContextInputSchema } from './research-context-schema';
 
 export const providerSchema = z.enum(['deepseek', 'ollama']);
 export type ProviderId = z.infer<typeof providerSchema>;
@@ -28,6 +29,7 @@ export const contextInputSchema = z.object({
   experimentId: z.string().uuid().optional(),
   localProject: z.unknown().optional(),
   editorDraft: z.unknown().optional(),
+  research: researchContextInputSchema.optional(),
   view: z
     .object({
       revision: z.string().max(150),

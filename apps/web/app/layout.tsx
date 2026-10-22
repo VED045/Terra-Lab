@@ -4,6 +4,8 @@ import './research.css';
 import './scene.css';
 import './collaboration.css';
 import './ai.css';
+import './research-workspace.css';
+import 'katex/dist/katex.min.css';
 export const metadata: Metadata = {
   title: 'TerraLab · Network Studio',
   icons: {

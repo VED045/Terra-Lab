@@ -1,0 +1,62 @@
+# Research Workspace delivery report
+
+22 October 2026. This is Stage 3 of the AI Studio enhancement brief. Stage 1 and Stage 2 are recorded in [AI Studio UX](../ai/AI_STUDIO_UX_REPORT.md) and [local model connectivity](../ai/LOCAL_MODEL_CONNECTIVITY.md). The existing agent, scientific engines, reviewed tools, project roles and worker architecture are retained.
+
+## Delivered behavior
+
+`/research?project=<id>` owns papers, source files, figures and writing. Research is linked from the main research navigation and Network studio. Network studio saves the current project before navigation. Its **Add canvas evidence** action captures the actual 2D SVG or 3D WebGL surface, pauses playback for capture, records the saved revision, selection, mode and time, and rejects a changed canvas. HTML overlays are excluded from the 3D image and are explicitly identified in metadata. Capture waits for renderer readiness and prevents duplicate in-flight capture actions.
+
+The searchable project library supports collections, original-file downloads, rename, confirmed delete and SHA-256 deduplication. PDF, TXT, MD, TEX, CSV, JSON, PNG and JPEG are supported. Cloud library search uses an authorized RPC over extracted text; local search uses browser data. Original bytes remain unchanged. Assets inherit project access; a private manuscript requires its own explicit document grant.
+
+PDF text extraction runs in a bundled PDF.js worker with a 15-second budget, at most 40 pages, 6,000 characters/page and 60,000 total characters. Text chunks use section references rather than fabricated PDF page numbers. Empty/scanned, encrypted, unsupported and failed extraction states retain the original. There is no OCR. The optional sandboxed browser PDF frame has an original-download fallback; native PDF rendering varies by browser.
+
+The paper template and blank/imported documents provide faithful LaTeX source editing, title/authors, split/source/preview layouts, Ctrl/Cmd+S, checked autosave, recovery drafts, revision history and restore as a new revision. KaTeX previews bounded mathematics and basic headings with source-line diagnostics. It does not compile a complete paper. Packages, bibliography resolution, external graphics layout and PDF generation require an external trusted TeX workflow. Exported source is byte-for-byte faithful UTF-8; evidence exports include a JSON provenance manifest and separate original asset downloads.
+
+A document can attach real saved experiment runs, at most twenty metric groups, immutable configuration, source IDs/revision, uploaded figures or actual canvas captures. Cloud SQL resolves evidence from actual authorized run/asset rows rather than trusting a supplied snapshot. Local mode resolves saved experiments/assets. Available RMSE values can become a LaTeX table; missing values remain unavailable. Existing Laboratory charts/data exports can be uploaded as evidence; no new chart generator or fabricated numerical result is introduced. Deleting an asset leaves existing document references visibly unavailable.
+
+AI Studio receives only explicitly selected research context: one manuscript excerpt and up to two sources, with provider disclosure before Send. Excerpts carry real document versions and PDF page/text-section references. Uploaded text and filenames are untrusted data. Source summaries, equation discussion, assumptions, methodology, captions and claim review reuse the current conversation/agent. Image pixels are not sent; captions use disclosed metadata. Generated writing remains unverified. **Review draft in document** shows an editable insertion preview; explicit approval appends a checked revision only if the selected manuscript's base version and authorization still match. The model has no manuscript-write tool.
+
+## Persistence, collaboration and permissions
+
+Local browser work uses IndexedDB `terralab-research-workspace`. Draft recovery is scoped to actor/project/document in localStorage; proposed insertions are scoped in sessionStorage and expire after fifteen minutes. Project changes, account changes and stale asynchronous responses cannot intentionally authorize another workspace. Private content is not placed in URLs, logs or AI task history.
+
+Cloud work uses the existing public-key/JWT Supabase client, fresh user validation and RLS. No service key or new shared provider credential is introduced. Document owner/editor/viewer roles are constrained by current project membership; project viewers remain read-only. Sharing cannot grant project membership. Membership or document revocation immediately blocks the next authorized read/write/history/file operation. An already displayed copy cannot be recalled from a user's device.
+
+Collaboration is **versioned editing**, not realtime co-editing. Collaborators explicitly refresh/check the latest revision. Expected-version checks and transactional locks prevent silent overwrites, identical retries do not duplicate revisions, and conflicts preserve local drafts for export, reload or a separate recovery copy. There is no CRDT, cursor/presence service or claim that polling is realtime collaboration.
+
+Cloud files are private. Server uploads validate origin, identity, project editor role, actual MIME/signature/dimensions, hash and byte count; the storage path is server-derived. Upload failure cannot publish a completed asset; failed metadata publication triggers cleanup. Concurrent duplicate publication returns the existing asset and cleans the losing upload where possible. Deletion tombstones access before blob removal and reports cleanup failure. Orphans after an interrupted request or project deletion may require authorized operator cleanup; no destructive cleanup of existing user files was run.
+
+## Migration and production requirements
+
+New additive migration: `supabase/migrations/20261022115124_research_workspace.sql`, generated with Supabase CLI 2.121.0. It adds five RLS-protected research tables, checked RPCs, private helper functions, immutable revision/audit records and the private `research-library` bucket. It preserves existing project, membership, queue and experiment behavior. Public RPCs deny anonymous execution and pin `search_path`; direct authenticated table writes are denied.
+
+**The hosted migration has not been applied.** An administrator must review and apply all pending versioned migrations in order using the existing migration workflow. Do not reset an existing database. Afterward, verify real Auth, PostgREST and private Storage with authorized staging accounts before claiming hosted research acceptance. The UI reports an unconfigured backend rather than silently using local storage for a failed signed-in request. No Render operation or production configuration change was performed.
+
+Limits: 128 cloud documents/project, 128 revisions/document, 256 stored research files/project (including unpublished uploads), source 120,000 characters, 32 evidence references/document. Cloud uploads through TerraLab are limited to **4 MiB** to fit the hosting request limit; local uploads support **10 MiB**. Text files are limited to 1 MB. Images are limited to 16 megapixels/8,192 pixels per side. These are application safeguards, not a storage billing guarantee. Local storage is additionally limited by browser quota and needs exported backups.
+
+The authenticated Storage API still enforces its 10 MiB bucket limit. Project editors can use their permitted direct Storage/RPC access; metadata/extracted text supplied by another editor remains untrusted and is not proof of a paper's truth. Downloads verify the declared file hash. Malware scanning, OCR, full TeX compilation, a signed remote-origin companion and private-source research retrieval from the public internet are outside this delivery.
+
+Dependencies are pinned: `katex@0.19.0`, `pdfjs-dist@6.4.299`. PDF.js raises the root Node floor to **22.13.0**; this laptop uses Node 24.19.0. No new backend service, hosted paid provider or model download is required. `npm audit` reported zero vulnerabilities at verification time.
+
+## Verification ledger
+
+Final command results are listed in [AI test plan](../ai/TEST_PLAN.md). Acceptance used isolated Chromium, never the user's Chrome session.
+
+- Unit suite: 274 passed, two opt-in skips. Typecheck passed. PDF/file validation, safe math, source contracts, injection-as-data, proposal expiry/scoping and mocked private-upload transport are covered.
+- `npm run test:research`: 23 actual PostgreSQL/PGlite RLS groups passed, covering private/shared documents, viewer/editor/owner, direct API isolation, revoke, conflicts, immutable revisions, evidence lookup, upload completion, private files, multilingual UTF-8 extraction metadata, search, audit actor integrity and direct Storage quotas. Auth/Storage tables are fixtures, not a hosted Supabase instance.
+- Authenticated browser suite: eight passed with separate account contexts, actual PostgreSQL RLS and simulated Auth/PostgREST. Research owner creation, private-by-default access, viewer denial, editor saving and revocation are included. Real hosted accounts were not used.
+- Five Research Workspace browser tests exercise actual Next routes, IndexedDB, a valid PDF worker extraction, original source export, math/error preview, revision restore, two-tab conflict recovery, real 2D and 3D capture, an actual numerical API run attached as evidence, and reviewed AI insertion. Model prose uses the explicit Ollama protocol fixture.
+- Actual Qwen inference and formal tool/JSON verification on this laptop were separately verified in Stage 2 through Chromium -> Next 13040 -> Ollama 11435. No paid inference, hosted DeepSeek key or external model credential was used.
+- Full AI browser suite: 12 passed. Simulator suite: 52 passed. Seven affected canvas/research browser tests passed again after the final measured-viewport fit and selected-project theme refinements. Production build and typecheck passed.
+- Actual local runtime smoke at 13040 also passed extracted-text search, simultaneous two-source AI context, byte-exact original download, confirmed deletion and failed-PDF extraction retention. Screenshots were captured in an isolated browser. Command: `node C:/Users/Ved/Documents/Codex/2026-10-21/and/work/research-local-smoke.cjs`.
+- Existing numerical, database, collaboration, worker and production checks are retained. No scientific tolerances were changed.
+
+The final browser suite respects the actual shared local actor request budget. A rate-rejected approval is not a submitted experiment: acceptance waits for an authorized read to succeed, obtains a fresh proposal and explicitly approves it. No rate limit is disabled or reset. Initial canvas fit waits for its actual measured viewport; hide/restore preserves the user view instead of fitting again. Research uses the selected project palette. The saved cloud revision fixture now checks `config,version` and asserts the actual revision used in AI context. Canvas hide/restore also asserts that user zoom is preserved.
+
+Screenshots were inspected at 1,280 px desktop and 390 px mobile. Light/dark rendering, source/preview sizing and mobile overflow are checked. Native embedded-PDF pixel rendering, hosted Storage upload/download, genuine hosted multiuser sessions, full PDF compilation and deployed-to-laptop inference are **not verified**. The local-only mode remains the supported free-model route.
+
+## Changed files
+
+New page and upload endpoint: `apps/web/app/research/page.tsx`, `apps/web/app/api/research/assets/route.ts`; styles and preview: `apps/web/app/research-workspace.css`, `apps/web/components/research-workspace.tsx`, `research-latex-preview.tsx`; typed services: `apps/web/lib/research-workspace/{contracts,client,files,latex,proposals,scene-capture}.ts`; research context: `apps/web/lib/ai/research-context{,-schema}.ts`.
+
+Integrations: root layout, research navigation, Studio, shared NetworkCanvas, scene renderer, Laboratory dialog, AI Studio, AI project canvas, AI context/contracts/agent/chat route. Focused tests: research source/upload/context units, research browser/auth acceptance, `scripts/test-research-workspace.mjs`, existing AI cloud revision/layout/phase-three acceptance. Dependencies/commands: workspace/root package manifests, lockfile and Playwright AI configuration. New migration is listed above. Setup/security/test docs and this report complete the handoff.

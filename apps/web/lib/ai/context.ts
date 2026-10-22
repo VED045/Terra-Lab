@@ -1,5 +1,6 @@
 import { projectSchema, labConfigSchema } from '@terralab/shared';
 import { z } from 'zod';
+import { readResearchContext } from './research-context';
 import type { AIIdentity } from './access';
 import { snapshotRevision as canvasContextRevision, canvasContext } from './canvas-context';
 import { AIError, contextInputSchema } from './contracts';
@@ -55,7 +56,7 @@ export async function readContext(
     // The JWT-scoped client invokes the existing project SELECT policy. No service credential.
     const result = await identity
       .db!.from('projects')
-      .select('config')
+      .select('config,version')
       .eq('id', input.projectId)
       .maybeSingle();
     if (result.error || !result.data)
@@ -64,9 +65,11 @@ export async function readContext(
         'Project unavailable or access denied. Select an accessible project.',
         403,
       );
-    project = result.data.config;
+    project = { ...result.data.config, cloudVersion: result.data.version };
   }
   const savedProject = projectSchema.parse(project);
+  if (savedProject.id !== input.projectId)
+    throw new AIError('project_denied', 'Stored project identity mismatch.', 403);
   let described = savedProject;
   if (input.editorDraft && input.include?.canvas !== false) {
     const draft = projectSchema.parse(input.editorDraft);
@@ -89,6 +92,9 @@ export async function readContext(
         ? null
         : canvasContext(described, input, described !== savedProject),
     savedRevision: canvasContextRevision(savedProject),
+    ...(input.research
+      ? { research: await readResearchContext(identity, input.projectId, input.research) }
+      : {}),
   };
   let run: { status: string; experiment: ReturnType<typeof summarizeExperiment> } | null = null;
   if (input.experimentId && input.include?.results !== false) {

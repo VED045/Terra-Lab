@@ -33,6 +33,16 @@ export async function POST(request: Request) {
     if (input.messages.at(-1)?.role !== 'user')
       throw new AIError('invalid_request', 'Send a user message to start a response.');
     const context = await readContext(identity, input.context, request); // Fresh authorization on every turn.
+    if (
+      input.context.research &&
+      JSON.stringify(context).length + input.messages.reduce((n, m) => n + m.content.length, 0) >
+        18000
+    )
+      throw new AIError(
+        'context_limit',
+        'Selected research excerpts and conversation exceed the context budget. Deselect a source or start a shorter conversation.',
+        413,
+      );
     const key = providerKey(request, identity, input.provider);
     const provider = textProviders[input.provider];
     const connection = { key, signal };

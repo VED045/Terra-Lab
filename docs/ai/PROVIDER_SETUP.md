@@ -1,5 +1,11 @@
 # AI Studio provider setup
 
+## Current workbench and research sources
+
+[The local connectivity report](LOCAL_MODEL_CONNECTIVITY.md) documents the supported local-only route and actual generation/tool checks. Model-list reachability, opt-in generation and formal tool/JSON compatibility are separate indicators. In Provider settings, run **Test generation**, then verify tool compatibility for agent work. Only transient reachability/timeouts receive one bounded automatic retry; inference never silently switches provider/model.
+
+Research sources are optional and explicitly selected. The context panel discloses local versus hosted inference before Send; deselect private source categories to exclude them. Selected source text is bounded and untrusted. The document remains unchanged until a separate reviewed insertion is approved. See [Research Workspace](../research/RESEARCH_WORKSPACE_REPORT.md).
+
 ## Phase 3: installed free local laptop profile
 
 For the complete click-by-click flow, project import between ports, the shared canvas and edit/AI navigation, see [LOCAL_OLLAMA_GUIDE.md](LOCAL_OLLAMA_GUIDE.md). The local profile now uses `.next-local-ai` and its own TypeScript configuration, so a regular `npm run dev` server on port 3000 can remain running. Browser acceptance uses a separate `.next-tests` output directory as well.

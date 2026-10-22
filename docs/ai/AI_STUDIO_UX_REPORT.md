@@ -21,3 +21,7 @@ Provider setup explains free local weights and hosted billing separately. API re
 The initial browser rerun caught duplicate status regions, corrected without changing assertions. A subsequent study approval hit the existing shared operation budget after health checks were added to it; health listing no longer spends mutation/tool capacity. Generation still uses the existing budget. The complete six-test suite then passed, including cooldown recovery.
 
 Changed areas: `components/ai-studio.tsx`, `ai-project-canvas.tsx`, new `ai-agent-activity.tsx`, `app/ai.css`, `api/ai/connection/route.ts`, `lib/ai/connection-state.ts` and focused unit/browser tests. No dependency or migration in Stage 1.
+
+## Final cross-stage check
+
+The final enhancement preserves pan/zoom/layers and valid selection across canvas hide/restore and project refresh. Initial fit waits for the actual viewport measurement. The existing renderer is still shared with Network studio. The 12-test AI suite passed; seven affected canvas/research tests passed after the final fit/theme refinement. See the current [test ledger](TEST_PLAN.md) for full regression results.

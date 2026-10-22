@@ -31,6 +31,7 @@ import {
   type Solution,
 } from '@terralab/shared';
 import { useStudio } from '@/lib/store';
+import { registerSceneCapture } from '@/lib/research-workspace/scene-capture';
 import { useSceneView, sceneMutationAllowed } from '@/lib/scene-view';
 import {
   fromScene,
@@ -737,6 +738,23 @@ function SegmentBatch({
   );
 }
 
+function ResearchFrameCapture() {
+  const { gl, scene, camera } = useThree();
+  useEffect(
+    () =>
+      registerSceneCapture(async () => {
+        gl.render(scene, camera);
+        return new Promise<Blob>((resolve, reject) =>
+          gl.domElement.toBlob(
+            (blob) => (blob ? resolve(blob) : reject(Error('Actual WebGL capture failed.'))),
+            'image/png',
+          ),
+        );
+      }),
+    [gl, scene, camera],
+  );
+  return null;
+}
 export default function SceneRenderer(props: Props) {
   const [labels, setLabels] = useState<ScreenLabel[]>([]);
   const onLabels = useCallback((next: ScreenLabel[]) => setLabels(next), []);
@@ -756,6 +774,7 @@ export default function SceneRenderer(props: Props) {
           <PerspectiveCamera makeDefault position={[120, 120, 120]} fov={45} />
         )}
         <Lifecycle onLost={props.onLost} onReady={props.onReady} onStats={props.onStats} />
+        <ResearchFrameCapture />
         <Content unit={props.unit} verifiedSolution={props.verifiedSolution} />
         <LabelProjector unit={props.unit} onLabels={onLabels} />
       </Canvas>

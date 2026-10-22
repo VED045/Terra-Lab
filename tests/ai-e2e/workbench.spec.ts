@@ -13,10 +13,13 @@ test('layout preference, draft preservation, local onboarding and dark reduced-m
   await page
     .getByRole('textbox', { name: 'Message TerraLab AI' })
     .fill('Keep this research question');
+  await canvas.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  const zoom = await canvas.locator('.zoom-value').textContent();
   await page.getByLabel('Canvas layout').selectOption('hidden');
   await expect(canvas.locator('.network-canvas')).toHaveCount(0);
   await page.getByLabel('Canvas layout').selectOption('compact');
   await expect(canvas.locator('.network-node')).not.toHaveCount(0);
+  await expect(canvas.locator('.zoom-value')).toHaveText(zoom!);
   await expect(page.getByRole('textbox', { name: 'Message TerraLab AI' })).toHaveValue(
     'Keep this research question',
   );

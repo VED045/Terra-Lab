@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import type { Project } from '@terralab/shared';
 import { createCanvasPreviewStore } from '@/lib/canvas-preview';
@@ -18,6 +18,7 @@ export function AIProjectCanvas({
   const [mode, setMode] = useState<'split' | 'compact' | 'hidden'>('split');
   const [open, setOpen] = useState(true);
   const [store] = useState(() => createCanvasPreviewStore(project));
+  const mountedOnce = useRef(false);
   useEffect(() => {
     try {
       const saved = localStorage.getItem('terralab.ai.canvas-layout.v1');
@@ -25,7 +26,13 @@ export function AIProjectCanvas({
     } catch {}
   }, []);
   useEffect(() => {
-    store.setState({ project: structuredClone(project) });
+    store.setState((state) => ({
+      project: {
+        ...structuredClone(project),
+        canvas: { ...state.project.canvas, theme: project.canvas.theme },
+      },
+      selected: state.selected.filter((id) => project.objects.some((o) => o.id === id)),
+    }));
   }, [project, store]);
   useEffect(() => {
     const send = () => {
@@ -75,7 +82,14 @@ export function AIProjectCanvas({
         <div id="ai-saved-canvas">
           <div className="ai-canvas-stage">
             <Tooltip.Provider>
-              <NetworkCanvas canvasStore={store} readOnly fitOnLoad />
+              <NetworkCanvas
+                canvasStore={store}
+                readOnly
+                fitOnLoad={!mountedOnce.current}
+                onInitialFit={() => {
+                  mountedOnce.current = true;
+                }}
+              />
             </Tooltip.Provider>
           </div>
           <p>

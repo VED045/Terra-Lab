@@ -434,7 +434,13 @@ Buildings, walls and obstacles support explicit width (X), footprint depth (Y), 
 
 Select two to four saved experiments to compare full-data metrics, configuration differences, error CDFs, standardized residuals and selected trajectories. Export complete sources, CSV, SVG/PNG charts, a manifest and a printable report. Named report collections are browser-local references. Conflicting saves preserve your draft and offer comparison, copy and deliberate reapply workflows.
 
-## AI Studio foundation
+## AI Studio and Research Workspace
+
+AI Studio now has guided connection diagnostics, a compact activity flow, context inclusion controls and expanded/compact/hidden canvas layouts. Research Workspace at /research provides private sources, faithful LaTeX editing with math preview, checked revisions/conflict recovery, explicit document sharing and traceable evidence from actual runs and renderer captures. Proposed AI writing requires review before insertion. See [the enhancement report](docs/research/RESEARCH_WORKSPACE_REPORT.md) and [local connectivity](docs/ai/LOCAL_MODEL_CONNECTIVITY.md).
+
+Local Research Workspace works in the browser immediately. Cloud research requires the new additive migration, which has **not** been applied to the hosted database. Collaboration uses versioned saves and refresh, and full paper PDF compilation is external. Node 22.13+ is required (tested 24.19.0).
+
+### Existing canvas and local startup
 
 AI Studio now shows the same collapsible 2D canvas as Network studio. **Edit canvas** opens the selected project; Network studio's **AI Studio** button saves edits and returns with that project selected. Follow the [local Ollama step-by-step guide](docs/ai/LOCAL_OLLAMA_GUIDE.md). The local AI profile on 13040 can run alongside the ordinary port-3000 server with separate Next cache/lock files. Collaboration activity excludes private-only projects and groups recent shared saves by project/day.
 

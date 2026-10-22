@@ -50,11 +50,13 @@ const tools: { mode: ToolMode; label: string; icon: typeof Radio }[] = [
 export default function NetworkCanvas({
   verifiedSolution,
   fitOnLoad = false,
+  onInitialFit,
   canvasStore,
   readOnly = false,
 }: {
   verifiedSolution?: Solution | null;
   fitOnLoad?: boolean;
+  onInitialFit?: () => void;
   canvasStore?: typeof useStudio;
   readOnly?: boolean;
 }) {
@@ -65,6 +67,7 @@ export default function NetworkCanvas({
   const laboratory = readOnly ? null : savedLaboratory;
   const host = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
+  const [measured, setMeasured] = useState(false);
   const [size, setSize] = useState({ width: 900, height: 620 });
   const [cursor, setCursor] = useState<Point>({ x: 0, y: 0 });
   const [draft, setDraft] = useState<Point[]>([]);
@@ -82,9 +85,10 @@ export default function NetworkCanvas({
   } | null>(null);
   useEffect(() => {
     if (!host.current) return;
-    const ro = new ResizeObserver(([entry]) =>
-      setSize({ width: entry.contentRect.width, height: entry.contentRect.height }),
-    );
+    const ro = new ResizeObserver(([entry]) => {
+      setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+      setMeasured(true);
+    });
     ro.observe(host.current);
     return () => ro.disconnect();
   }, []);
@@ -138,12 +142,13 @@ export default function NetworkCanvas({
   }, [project.objects, size.width, size.height, edit]);
   const fittedViewport = useRef('');
   useEffect(() => {
-    if (!fitOnLoad) return;
+    if (!fitOnLoad || !measured || size.width <= 0 || size.height <= 0) return;
     const key = [project.id, size.width, size.height].join(':');
     if (fittedViewport.current === key) return;
     fittedViewport.current = key;
     fit();
-  }, [fitOnLoad, project.id, size.width, size.height, fit]);
+    onInitialFit?.();
+  }, [fitOnLoad, measured, project.id, size.width, size.height, fit, onInitialFit]);
   function zoom(f: number, at = { x: size.width / 2, y: size.height / 2 }) {
     const w = canvasToWorld(at, view);
     const z = Math.min(12, Math.max(0.2, view.zoom * f));

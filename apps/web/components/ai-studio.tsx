@@ -25,6 +25,9 @@ import { useStudio } from '@/lib/store';
 import { useLabView } from '@/lib/lab-view';
 import { providers, type Message, type ProviderId, type StreamEvent } from '@/lib/ai/contracts';
 import { NetworkLogo } from './network-logo';
+import { researchIndex, researchSourceAsset } from '@/lib/research-workspace/client';
+import type { ResearchDocument, ResearchAsset } from '@/lib/research-workspace/contracts';
+import { manuscriptProposalSchema, proposalKey } from '@/lib/research-workspace/proposals';
 import { Button } from './ui/button';
 
 type Settings = {
@@ -86,6 +89,12 @@ export default function AIStudio() {
       setError((e as Error).message);
     }
   }
+  const [researchSelection, setResearchSelection] = useState<{
+    document: ResearchDocument | null;
+    assets: ResearchAsset[];
+  }>({ document: null, assets: [] });
+  const [includeDocument, setIncludeDocument] = useState(true),
+    [includeFiles, setIncludeFiles] = useState(true);
   const [experimentId, setExperimentId] = useState('');
   const [canvasView, setCanvasView] = useState<CanvasView | null>(null);
   const [includeContext, setIncludeContext] = useState({
@@ -277,7 +286,17 @@ export default function AIStudio() {
       active = false;
       controller.abort();
     };
-  }, [projectId, experimentId, settings, projects, canvasView, includeContext]);
+  }, [
+    projectId,
+    experimentId,
+    settings,
+    projects,
+    canvasView,
+    includeContext,
+    researchSelection,
+    includeDocument,
+    includeFiles,
+  ]);
   useEffect(() => {
     if (!trackedRun || !projectId) return;
     const controller = new AbortController();
@@ -342,10 +361,123 @@ export default function AIStudio() {
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'nearest' });
   }, [messages]);
+  useEffect(() => {
+    let active = true;
+    setResearchSelection({ document: null, assets: [] });
+    const query = new URLSearchParams(location.search),
+      documentId = query.get('document'),
+      assetId = query.get('assets') || query.get('asset');
+    if (projectId && (documentId || assetId))
+      void (async () => {
+        try {
+          const index = await researchIndex(projectId),
+            document = index.documents.find((d) => d.id === documentId) ?? null;
+          if (documentId && !document)
+            throw Error('Selected manuscript unavailable or access revoked.');
+          const assets = assetId
+            ? await Promise.all(
+                assetId
+                  .split(',')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((id) => researchSourceAsset(projectId, id)),
+              )
+            : [];
+          if (active) {
+            setResearchSelection({ document, assets });
+            const prompt = query.get('prompt');
+            if (prompt) setDraft(prompt.slice(0, 2000));
+          }
+        } catch (e) {
+          if (active) setError((e as Error).message);
+        }
+      })();
+    return () => {
+      active = false;
+    };
+  }, [projectId, settings?.actorId]);
+  function reviewResearchDraft() {
+    const document = researchSelection.document,
+      text = messages.at(-1)?.content;
+    if (!document || document.project_id !== projectId || !text || !settings?.actorId) return;
+    try {
+      const proposal = manuscriptProposalSchema.parse({
+        id: crypto.randomUUID(),
+        actor: settings.actorId,
+        projectId,
+        documentId: document.id,
+        baseVersion: document.version,
+        text: text.slice(0, 8000),
+        createdAt: Date.now(),
+        provider: provider + '/' + model,
+      });
+      sessionStorage.setItem(
+        proposalKey(proposal.actor, projectId, proposal.id),
+        JSON.stringify(proposal),
+      );
+      router.push(
+        '/research?project=' + projectId + '&document=' + document.id + '&proposal=' + proposal.id,
+      );
+    } catch {
+      setError(
+        'Could not retain a bounded draft preview. Copy the response manually; the manuscript is unchanged.',
+      );
+    }
+  }
   function contextInput() {
     return {
       projectId,
       include: includeContext,
+      ...(researchSelection.document?.project_id === projectId ||
+      researchSelection.assets.some((a) => a.project_id === projectId)
+        ? {
+            research: {
+              documentId:
+                researchSelection.document?.project_id === projectId
+                  ? researchSelection.document.id
+                  : undefined,
+              assetIds: researchSelection.assets
+                .filter((a) => a.project_id === projectId)
+                .map((a) => a.id),
+              includeDocument,
+              includeFiles,
+              ...(settings?.mode === 'local-development'
+                ? {
+                    localDocument:
+                      researchSelection.document?.project_id === projectId
+                        ? {
+                            id: researchSelection.document.id,
+                            project_id: projectId,
+                            version: researchSelection.document.version,
+                            title: researchSelection.document.title,
+                            source: researchSelection.document.source.slice(0, 6000),
+                          }
+                        : undefined,
+                    localAssets: researchSelection.assets
+                      .filter((a) => a.project_id === projectId)
+                      .map((a) => ({
+                        id: a.id,
+                        project_id: projectId,
+                        name: a.name,
+                        mime: a.mime,
+                        extraction: {
+                          status: a.extraction.status,
+                          pages: a.extraction.pages
+                            .slice(0, 2)
+                            .map((p) => ({ ...p, text: p.text.slice(0, 1500) })),
+                        },
+                        provenance: {
+                          revision: a.provenance.revision ?? null,
+                          mode: a.provenance.mode ?? null,
+                          state: a.provenance.state ?? null,
+                          capturedAt: a.provenance.capturedAt ?? null,
+                        },
+                      })),
+                  }
+                : {}),
+            },
+          }
+        : {}),
       ...(canvasView && projects.find((p) => p.id === projectId)
         ? {
             view: {
@@ -811,6 +943,47 @@ export default function AIStudio() {
           hidden={!contextOpen}
         >
           <h2>Research context</h2>
+          <Link href={'/research?project=' + projectId}>Open Research Workspace</Link>
+          {(researchSelection.document || researchSelection.assets.length > 0) && (
+            <details open>
+              <summary>Selected research sources</summary>
+              <p>
+                {provider === 'ollama'
+                  ? 'Selected excerpts go to your local model.'
+                  : 'Selected private excerpts go to DeepSeek when you press Send; hosted inference may incur charges.'}{' '}
+                Only bounded excerpts are included, not entire papers or image pixels.
+              </p>
+              {researchSelection.document && (
+                <label className="ai-context-option">
+                  <input
+                    type="checkbox"
+                    checked={includeDocument}
+                    disabled={busy}
+                    onChange={(e) => setIncludeDocument(e.target.checked)}
+                  />
+                  Current document · {researchSelection.document.title} · v
+                  {researchSelection.document.version}
+                </label>
+              )}
+              {researchSelection.assets.length > 0 && (
+                <label className="ai-context-option">
+                  <input
+                    type="checkbox"
+                    checked={includeFiles}
+                    disabled={busy}
+                    onChange={(e) => setIncludeFiles(e.target.checked)}
+                  />
+                  Selected research files
+                </label>
+              )}
+              {researchSelection.assets.map((a) => (
+                <p key={a.id}>
+                  <Link href={'/research?project=' + projectId + '&asset=' + a.id}>{a.name}</Link> ·{' '}
+                  {a.extraction.status} · up to two page/section excerpts
+                </p>
+              ))}
+            </details>
+          )}
           <details>
             <summary>What the model can see</summary>
             <p>
@@ -1191,6 +1364,12 @@ export default function AIStudio() {
               run={runView}
               projectId={projectId}
             />
+            {researchSelection.document &&
+              !busy &&
+              turnStatus === 'completed' &&
+              messages.at(-1)?.content && (
+                <Button onClick={reviewResearchDraft}>Review draft in document</Button>
+              )}
             <div ref={end} />
           </div>
           <div className="ai-compose-area">
@@ -1276,6 +1455,11 @@ export default function AIStudio() {
                 busy={busy}
                 onReview={(decision) => void reviewAction(decision)}
               />
+            )}
+            {runView && (
+              <Link href={'/research?project=' + projectId + '&run=' + runView.id}>
+                Add this run to Research Workspace
+              </Link>
             )}
             {runView && (
               <a

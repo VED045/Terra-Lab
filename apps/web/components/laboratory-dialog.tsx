@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import {
   defaultLabConfig,
@@ -816,6 +817,11 @@ export function LaboratoryDialog({
               {terminal(result.status) && (
                 <div className="lab-actions">
                   <Button onClick={() => setPublicationOpen(true)}>Publication exports</Button>
+                  <Link
+                    href={'/research?project=' + result.request.project.id + '&run=' + result.id}
+                  >
+                    Add to Research Workspace
+                  </Link>
                   <Button
                     onClick={() =>
                       downloadFile(

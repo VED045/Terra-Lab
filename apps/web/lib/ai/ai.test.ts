@@ -60,10 +60,12 @@ function mockCloud(url: string | URL | Request, init?: RequestInit) {
   }
   if (address.includes('/rest/v1/projects')) {
     const query = new URL(address).searchParams;
-    expect(query.get('select')).toBe('config');
+    expect(query.get('select')).toBe('config,version');
     expect(headers.get('authorization')).toBe('Bearer ' + alice);
     return new Response(
-      JSON.stringify(query.get('id') === 'eq.' + project.id ? { config: project } : null),
+      JSON.stringify(
+        query.get('id') === 'eq.' + project.id ? { config: project, version: 7 } : null,
+      ),
     );
   }
   if (address.endsWith('/models'))
@@ -231,7 +233,10 @@ describe('authentication and context', () => {
     const response = await contextRoute(
       req('context', { projectId: project.id, localProject: { ...project, objects: [] } }),
     );
-    expect((await response.json()).objects.anchors.total).toBeGreaterThan(0);
+    const context = await response.json();
+    expect(context.objects.anchors.total).toBeGreaterThan(0);
+    expect(context.savedRevision).toBe('7:' + project.updatedAt);
+    expect(context.canvas.revision).toBe(context.savedRevision);
     await expect(
       readContext(
         { local: true, db: null, userId: 'local-development' },
