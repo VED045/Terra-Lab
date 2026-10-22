@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUp, Check, Circle, Network, Settings2, Square, RotateCcw } from 'lucide-react';
 import type { Project } from '@terralab/shared';
 import { listProjects, supabase, localSave, localList } from '@/lib/persistence';
@@ -19,7 +19,7 @@ import {
   transientConnectionFailure,
   type ConnectionState,
 } from '@/lib/ai/connection-state';
-import { AIProjectCanvas } from './ai-project-canvas';
+import { AIProjectCanvas, type CanvasView } from './ai-project-canvas';
 import type { ActionOutcome } from '@/lib/ai/task-history';
 import { useStudio } from '@/lib/store';
 import { useLabView } from '@/lib/lab-view';
@@ -41,6 +41,13 @@ type Settings = {
 };
 type Experiment = { measurement: string; trials: number; estimators: string[] };
 type Context = {
+  savedRevision?: string;
+  canvas?: {
+    revision: string;
+    state: string;
+    staleView: boolean;
+    selected: { id: string; kind: string }[];
+  } | null;
   source: string;
   objects: Record<string, { total: number; enabled: number }>;
   mobility: string[];
@@ -80,6 +87,14 @@ export default function AIStudio() {
     }
   }
   const [experimentId, setExperimentId] = useState('');
+  const [canvasView, setCanvasView] = useState<CanvasView | null>(null);
+  const [includeContext, setIncludeContext] = useState({
+    canvas: true,
+    selected: true,
+    configuration: true,
+    results: true,
+  });
+  const updateCanvasView = useCallback((view: CanvasView) => setCanvasView(view), []);
   const [context, setContext] = useState<Context | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -262,7 +277,7 @@ export default function AIStudio() {
       active = false;
       controller.abort();
     };
-  }, [projectId, experimentId, settings, projects]);
+  }, [projectId, experimentId, settings, projects, canvasView, includeContext]);
   useEffect(() => {
     if (!trackedRun || !projectId) return;
     const controller = new AbortController();
@@ -330,6 +345,26 @@ export default function AIStudio() {
   function contextInput() {
     return {
       projectId,
+      include: includeContext,
+      ...(canvasView && projects.find((p) => p.id === projectId)
+        ? {
+            view: {
+              revision:
+                (projects.find((p) => p.id === projectId)!.cloudVersion ?? 'local') +
+                ':' +
+                projects.find((p) => p.id === projectId)!.updatedAt,
+              selected: canvasView.selected,
+              zoom: canvasView.canvas.zoom,
+              pan: canvasView.canvas.pan,
+              mode: '2d' as const,
+            },
+          }
+        : {}),
+      ...(useStudio.getState().dirty &&
+      useStudio.getState().project.id === projectId &&
+      includeContext.canvas
+        ? { editorDraft: useStudio.getState().project }
+        : {}),
       ...(experimentId ? { experimentId } : {}),
       ...(settings?.mode === 'local-development'
         ? { localProject: projects.find((p) => p.id === projectId) }
@@ -476,6 +511,8 @@ export default function AIStudio() {
     setError('');
     setNotice('');
     setBusy(true);
+    setTurnStatus('running');
+    setTurnStarted(Date.now());
     setActivity([
       agentEnabled
         ? 'Preparing bounded tool workflow with fresh project authorization…'
@@ -704,6 +741,11 @@ export default function AIStudio() {
         await api('compatibility', { method: 'POST', body: JSON.stringify({ provider, model }) })
       ).json();
       if (epoch !== revision.current) return;
+      setCapability(
+        result.checked
+          ? 'Tool calling and structured output verified'
+          : 'Compatibility not verified',
+      );
       setNotice(
         result.checked
           ? 'Tool calling and structured JSON verified by actual provider probes.'
@@ -769,6 +811,43 @@ export default function AIStudio() {
           hidden={!contextOpen}
         >
           <h2>Research context</h2>
+          <details>
+            <summary>What the model can see</summary>
+            <p>
+              Choose context before sending. Excluded categories also block corresponding inspection
+              tools.
+            </p>
+            {(Object.keys(includeContext) as (keyof typeof includeContext)[]).map((category) => (
+              <label className="ai-context-option" key={category}>
+                <input
+                  type="checkbox"
+                  checked={includeContext[category]}
+                  disabled={busy || !!approval}
+                  onChange={(e) =>
+                    setIncludeContext((v) => ({ ...v, [category]: e.target.checked }))
+                  }
+                />
+                {
+                  {
+                    canvas: 'Current canvas',
+                    selected: 'Selected entity',
+                    configuration: 'Saved configuration',
+                    results: 'Experiment results',
+                  }[category]
+                }
+              </label>
+            ))}
+            <p>
+              Revision: {context?.savedRevision ?? 'Loading'}
+              {context?.canvas ? ' · ' + context.canvas.state : ''}
+            </p>
+            {context?.canvas?.selected.map((entity) => (
+              <p key={entity.id}>
+                {entity.kind}: {entity.id}
+              </p>
+            ))}
+            {context?.canvas?.staleView && <p>View selection is stale; select again.</p>}
+          </details>
           <label htmlFor="ai-project">Saved project</label>
           <select
             id="ai-project"
@@ -1063,6 +1142,7 @@ export default function AIStudio() {
             <AIProjectCanvas
               key={projectId}
               project={projects.find((p) => p.id === projectId)!}
+              onView={updateCanvasView}
               onEdit={() => void editSelectedCanvas()}
             />
           )}

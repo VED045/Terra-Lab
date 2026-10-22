@@ -105,6 +105,30 @@ export async function executeTool(
     const p = active.project;
     if (toolName.startsWith('propose_')) requireEditor(active);
     let data: unknown, approval: ApprovalView | undefined;
+    if (
+      context.include?.canvas === false &&
+      ['inspect_entities', 'diagnose_geometry'].includes(toolName)
+    )
+      throw new AIError(
+        'context_excluded',
+        'Enable current canvas context before inspecting geometry.',
+        403,
+      );
+    if (context.include?.configuration === false && toolName === 'inspect_parameters')
+      throw new AIError(
+        'context_excluded',
+        'Enable saved configuration context before inspecting parameters.',
+        403,
+      );
+    if (
+      context.include?.results === false &&
+      ['list_runs', 'inspect_run', 'compare_runs', 'export_run'].includes(toolName)
+    )
+      throw new AIError(
+        'context_excluded',
+        'Enable experiment context before inspecting results.',
+        403,
+      );
     switch (toolName) {
       case 'inspect_test_commands':
         data = await inspectTesting(identity);
@@ -218,6 +242,18 @@ export async function executeTool(
             p.laboratory ??
             'No saved configuration; existing defaultLabConfig is available via inspect_parameters.',
         };
+        if (context.include?.canvas === false)
+          data = {
+            projectId: p.id,
+            revision: p.cloudVersion ?? 'local',
+            role: active.role,
+            canvas: 'Excluded by user',
+          };
+        else if (context.include?.configuration === false) {
+          const permitted = data as Record<string, unknown>;
+          delete permitted.simulation;
+          delete permitted.experiment;
+        }
         break;
       }
       case 'inspect_entities': {

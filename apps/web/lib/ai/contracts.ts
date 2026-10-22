@@ -27,6 +27,26 @@ export const contextInputSchema = z.object({
   projectId: z.string().uuid(),
   experimentId: z.string().uuid().optional(),
   localProject: z.unknown().optional(),
+  editorDraft: z.unknown().optional(),
+  view: z
+    .object({
+      revision: z.string().max(150),
+      selected: z.array(z.string().max(100)).max(20),
+      zoom: z.number().finite().min(0.2).max(12),
+      pan: z.object({ x: z.number().finite(), y: z.number().finite() }),
+      mode: z.enum(['2d', '3d']),
+    })
+    .strict()
+    .optional(),
+  include: z
+    .object({
+      canvas: z.boolean(),
+      selected: z.boolean(),
+      configuration: z.boolean(),
+      results: z.boolean(),
+    })
+    .strict()
+    .optional(),
 });
 export const chatSchema = selectionSchema
   .extend({

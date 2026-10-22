@@ -1,6 +1,7 @@
 import { projectSchema, labConfigSchema } from '@terralab/shared';
 import { z } from 'zod';
 import type { AIIdentity } from './access';
+import { snapshotRevision as canvasContextRevision, canvasContext } from './canvas-context';
 import { AIError, contextInputSchema } from './contracts';
 
 export function summarizeProject(value: unknown, source: 'cloud-saved' | 'local-development') {
@@ -65,9 +66,32 @@ export async function readContext(
       );
     project = result.data.config;
   }
-  const summary = summarizeProject(project, identity.local ? 'local-development' : 'cloud-saved');
+  const savedProject = projectSchema.parse(project);
+  let described = savedProject;
+  if (input.editorDraft && input.include?.canvas !== false) {
+    const draft = projectSchema.parse(input.editorDraft);
+    if (draft.id !== savedProject.id)
+      throw new AIError('project_denied', 'The draft belongs to a different project.', 403);
+    described = draft;
+  }
+  const rawSummary = summarizeProject(
+    described,
+    identity.local ? 'local-development' : 'cloud-saved',
+  );
+  const summary = {
+    ...rawSummary,
+    objects: input.include?.canvas === false ? {} : rawSummary.objects,
+    mobility: input.include?.canvas === false ? [] : rawSummary.mobility,
+    experiment: input.include?.configuration === false ? null : rawSummary.experiment,
+    simulation: input.include?.configuration === false ? null : rawSummary.simulation,
+    canvas:
+      input.include?.canvas === false
+        ? null
+        : canvasContext(described, input, described !== savedProject),
+    savedRevision: canvasContextRevision(savedProject),
+  };
   let run: { status: string; experiment: ReturnType<typeof summarizeExperiment> } | null = null;
-  if (input.experimentId) {
+  if (input.experimentId && input.include?.results !== false) {
     if (identity.local) {
       if (!request)
         throw new AIError(
